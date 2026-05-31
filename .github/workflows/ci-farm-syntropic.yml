@@ -43,7 +43,8 @@ jobs:
               .github/workflows/ci-farm-syntropic.yml \
               .github/workflows/smoke-farm-syntropic.yml \
               .github/workflows/phpstan-farm-syntropic.yml \
-              .github/workflows/enforce-changelog.yml
+              .github/workflows/enforce-changelog.yml \
+              .github/workflows/mcp-server-ci.yml
 
   yaml-lint:
     name: YAML lint (config + workflows)
