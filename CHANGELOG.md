@@ -7,12 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- AgriforestryOS fork: stripped 1,513 dead upstream farmOS source files from git. The runtime never reads those files — `farmos/farmos:4.x-dev` provides the entire farmOS codebase at container boot; only `modules/farm_syntropic/` is bind-mounted on top. Removed: `modules/{asset,core,log,organization,quantity,quick,role,taxonomy}/`, `composer.json` + project + libraries, `farm.info.yml`/`.install`, `mkdocs.yml`, `CODE_OF_CONDUCT.md`, upstream Docker build files, `docker/docker-compose.{development,production,testing.*}.yml`, and `docs/{development,guide,hosting,model}/`. Repo went from 1,552 tracked files to 39.
-
 ### Added
 
+- AgriforestryOS fork: `mcp-server/` — read-only FastMCP server exposing AgriforestryOS farm data to Claude via five curated JSON:API tools (`list_asset_types`, `count_trees`, `query_trees`, `get_tree`, `list_infrastructure`). Python 3.11+, uv, FastMCP 3.3.x. All 12 tests are fully mocked via pytest-httpx — no live farmOS required.
+- AgriforestryOS fork: `.github/workflows/mcp-server-ci.yml` — advisory CI workflow running the MCP server pytest suite on every `mcp-server/**` change. Pinned to `astral-sh/setup-uv@08807647` (v8.1.0).
 - AgriforestryOS fork: `tree_planting` asset bundle — records a row or block of same-species trees with species, variety, tree count (min 1), spacing, planting date, source, notes, and geometry fields. Shipped via `TreePlanting.php` plugin and `asset.type.tree_planting.yml` config entity.
 - AgriforestryOS fork: `parent_planting` entity-reference field on the Tree asset type — typed to accept only `tree_planting` assets (via `FarmFieldFactory` `target_bundle` shorthand for `target_type: asset`). Tree custom-field count goes 13 → 14.
 - AgriforestryOS fork: Drupal View `tree_planting_trees` — lists Tree assets linked to a given Tree Planting via `parent_planting`. Shipped in `config/install/views.view.tree_planting_trees.yml`. The `page_embed` display is available for manual block placement (Structure → Block Layout); not auto-placed on the Planting page in v1.
@@ -34,7 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- AgriforestryOS fork: disabled the inherited `Tests and delivery` workflow (`.github/workflows/deliver.yml`). It had been failing nightly since farmOS upstream pinned `drupal/core 11.3.8`, which is blocked by composer security advisory [SA-CORE-2026-004](https://www.drupal.org/sa-core-2026-004). The workflow now uses `on: workflow_dispatch:` only — no automatic runs. Our own `ci-farm-syntropic`, `phpstan-farm-syntropic`, and `smoke-farm-syntropic` workflows continue to cover the code we author. Original 467-line file recoverable from git history.
 - [Fork-scope CI linters and remove CodeQL workflow #3](https://github.com/Goldberry-Playground/AgriforestryOS/pull/3) (AgriforestryOS fork) — fixes CI runs that were failing on inherited upstream paths since the Sprint 3.5 foundation merge.
 - [Fix dashboard block title access #1075](https://github.com/farmOS/farmOS/pull/1075)
 

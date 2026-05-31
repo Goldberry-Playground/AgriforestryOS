@@ -1,0 +1,33 @@
+{
+  "jsonapi": {"version": "1.1", "meta": {"links": {"self": {"href": "http://jsonapi.org/format/1.1/"}}}},
+  "data": [
+    {
+      "type": "asset_type--asset_type",
+      "id": "tree",
+      "attributes": {
+        "drupal_internal__id": "tree",
+        "label": "Tree",
+        "description": "Individual perennial tree."
+      }
+    },
+    {
+      "type": "asset_type--asset_type",
+      "id": "infrastructure",
+      "attributes": {
+        "drupal_internal__id": "infrastructure",
+        "label": "Infrastructure",
+        "description": "Farm infrastructure asset."
+      }
+    },
+    {
+      "type": "asset_type--asset_type",
+      "id": "tree_planting",
+      "attributes": {
+        "drupal_internal__id": "tree_planting",
+        "label": "Tree Planting",
+        "description": "A row or block of trees planted as a batch."
+      }
+    }
+  ],
+  "links": {"self": {"href": "http://farmos.local/jsonapi/asset_type/asset_type"}}
+}

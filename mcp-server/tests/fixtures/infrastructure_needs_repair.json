@@ -1,0 +1,31 @@
+{
+  "jsonapi": {"version": "1.1"},
+  "data": [
+    {
+      "type": "asset--infrastructure",
+      "id": "infra-uuid-1",
+      "attributes": {
+        "drupal_internal__id": 2,
+        "name": "Test Fence",
+        "material": "Wood",
+        "capacity_value": null,
+        "capacity_unit": null,
+        "condition": "needs_repair",
+        "installation_date": "2024-01-15T00:00:00+00:00",
+        "specifications": "Split rail fence along eastern border"
+      },
+      "relationships": {
+        "infrastructure_type": {"data": {"type": "taxonomy_term--infrastructure_type", "id": "infra-type-uuid-1"}}
+      }
+    }
+  ],
+  "included": [
+    {
+      "type": "taxonomy_term--infrastructure_type",
+      "id": "infra-type-uuid-1",
+      "attributes": {"name": "Fence Perimeter", "drupal_internal__tid": 10}
+    }
+  ],
+  "meta": {"count": 1},
+  "links": {"self": {"href": "http://farmos.local/jsonapi/asset/infrastructure"}}
+}

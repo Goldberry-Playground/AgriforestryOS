@@ -1,0 +1,42 @@
+name: MCP server CI
+
+# Runs pytest against the mcp-server/ Python package using pinned uv.
+# Tests are fully mocked (pytest-httpx); no live farmOS required.
+# Advisory only in v1 — promote to required check after first clean run.
+
+on:
+  pull_request:
+    branches: [4.x, 'feature/**']
+    paths:
+      - 'mcp-server/**'
+      - '.github/workflows/mcp-server-ci.yml'
+  push:
+    branches: [4.x]
+    paths:
+      - 'mcp-server/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mcp-server-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: pytest (Python 3.11, uv)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync --project mcp-server
+
+      - name: Run pytest
+        run: uv run --project mcp-server pytest mcp-server/tests/ -v
