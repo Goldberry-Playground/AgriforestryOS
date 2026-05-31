@@ -1,5 +1,0 @@
-entity.organization_type.collection:
-  title: 'Organization types'
-  route_name: entity.organization_type.collection
-  description: 'List of organization types'
-  parent: system.admin_structure

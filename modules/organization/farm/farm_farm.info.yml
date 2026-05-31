@@ -1,9 +1,0 @@
-name: Farm organization
-description: Adds a Farm organization type.
-type: module
-package: farmOS Organizations
-core_version_requirement: ^11
-dependencies:
-  - farm:farm_entity
-  - farm:farm_location
-  - farm:organization

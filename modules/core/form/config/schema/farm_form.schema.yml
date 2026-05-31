@@ -1,7 +1,0 @@
-farm_form.settings:
-  type: config_object
-  label: 'farmOS Form Settings'
-  mapping:
-    enable_form_protection:
-      type: boolean
-      label: 'Display warning when users attempt to navigate away from forms with unsaved changes.'

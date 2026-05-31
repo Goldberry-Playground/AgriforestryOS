@@ -1,4 +1,0 @@
-# Quick form settings data type for quick form configuration entity.
-quick_form_settings:
-  type: mapping
-  label: 'Quick form settings'

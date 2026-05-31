@@ -1,7 +1,0 @@
-farm_form.settings:
-  path: 'farm/settings/forms'
-  defaults:
-    _form: '\Drupal\farm_form\Form\FormSettingsForm'
-    _title: 'Form settings'
-  requirements:
-    _permission: 'administer farm forms'

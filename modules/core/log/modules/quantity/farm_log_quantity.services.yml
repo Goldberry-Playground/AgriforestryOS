@@ -1,7 +1,0 @@
-services:
-  _defaults:
-    autowire: true
-  farm_log_quantity.event_subscriber:
-    class: Drupal\farm_log_quantity\EventSubscriber\LogQuantityEventSubscriber
-    tags:
-      - { name: 'event_subscriber' }

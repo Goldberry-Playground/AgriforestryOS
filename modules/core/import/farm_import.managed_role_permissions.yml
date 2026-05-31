@@ -1,3 +1,0 @@
-farm_import:
-  manager_permissions:
-    - access farm import index

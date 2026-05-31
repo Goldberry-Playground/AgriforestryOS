@@ -1,4 +1,0 @@
-farm_l10n.settings:
-  base_route: farm.setup.settings
-  route_name: farm_l10n.settings
-  title: 'Language'

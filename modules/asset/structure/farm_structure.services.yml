@@ -1,7 +1,0 @@
-services:
-  _defaults:
-    autowire: true
-  farm_structure.map_render_event_subscriber:
-    class: Drupal\farm_structure\EventSubscriber\MapRenderEventSubscriber
-    tags:
-      - { name: 'event_subscriber' }

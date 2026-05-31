@@ -1,5 +1,0 @@
-form_protection:
-  js:
-    js/form_protection.js: { }
-  dependencies:
-    - core/jquery

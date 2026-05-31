@@ -1,5 +1,0 @@
-farm_account_admin:
-  config_permissions:
-    - configure account admin role
-  permission_callbacks:
-    - Drupal\farm_account_admin\AccountAdminPermissions::permissions

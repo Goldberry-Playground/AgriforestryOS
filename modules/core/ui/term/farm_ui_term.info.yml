@@ -1,7 +1,0 @@
-name: farmOS UI Terms
-description: Adds farmOS UI related to taxonomy terms.
-type: module
-package: farmOS UI
-core_version_requirement: ^11
-dependencies:
-  - term_merge:term_merge

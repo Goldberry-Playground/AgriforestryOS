@@ -1,8 +1,0 @@
-name: Asset comments
-description: Enables comments on farmOS assets.
-type: module
-package: farmOS
-core_version_requirement: ^11
-dependencies:
-  - farm:asset
-  - farm:farm_comment

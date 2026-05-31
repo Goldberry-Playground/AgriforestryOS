@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- AgriforestryOS fork: stripped 1,513 dead upstream farmOS source files from git. The runtime never reads those files — `farmos/farmos:4.x-dev` provides the entire farmOS codebase at container boot; only `modules/farm_syntropic/` is bind-mounted on top. Removed: `modules/{asset,core,log,organization,quantity,quick,role,taxonomy}/`, `composer.json` + project + libraries, `farm.info.yml`/`.install`, `mkdocs.yml`, `CODE_OF_CONDUCT.md`, upstream Docker build files, `docker/docker-compose.{development,production,testing.*}.yml`, and `docs/{development,guide,hosting,model}/`. Repo went from 1,552 tracked files to 39.
+
 ### Added
 
 - AgriforestryOS fork: `tree_planting` asset bundle — records a row or block of same-species trees with species, variety, tree count (min 1), spacing, planting date, source, notes, and geometry fields. Shipped via `TreePlanting.php` plugin and `asset.type.tree_planting.yml` config entity.

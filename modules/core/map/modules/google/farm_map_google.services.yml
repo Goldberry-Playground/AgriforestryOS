@@ -1,7 +1,0 @@
-services:
-  _defaults:
-    autowire: true
-  google_map_render_event_subscriber:
-    class: Drupal\farm_map_google\EventSubscriber\MapRenderEventSubscriber
-    tags:
-      - { name: 'event_subscriber' }

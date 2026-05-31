@@ -1,8 +1,0 @@
-farm_setup:
-  config_permissions:
-    - access farm setup
-    - access farm setup wizard
-    - administer farm settings
-    - install farm modules
-  manager_permissions:
-    - access farm setup

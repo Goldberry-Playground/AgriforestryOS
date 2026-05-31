@@ -1,7 +1,0 @@
-farm_map_google.settings:
-  path: 'farm/settings/map/google'
-  defaults:
-    _form: '\Drupal\farm_map_google\Form\GoogleMapsSettingsForm'
-    _title: 'Google Maps settings'
-  requirements:
-    _permission: 'administer farm map'
