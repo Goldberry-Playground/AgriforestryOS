@@ -1,7 +1,0 @@
-name: farmOS Google Maps
-description: Adds Google Maps layers to farmOS maps.
-type: module
-package: farmOS Maps
-core_version_requirement: ^11
-dependencies:
-  - farm:farm_map

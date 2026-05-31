@@ -1,7 +1,0 @@
-name: farmOS Config Admin Role
-description: Provides a Config Admin role for managing system configuration.
-type: module
-package: farmOS
-core_version_requirement: ^11
-dependencies:
-  - farm:farm_role

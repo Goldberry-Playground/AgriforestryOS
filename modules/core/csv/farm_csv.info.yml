@@ -1,8 +1,0 @@
-name: farmOS CSV
-description: Provides CSV features for farmOS.
-type: module
-package: farmOS
-core_version_requirement: ^11
-dependencies:
-  - csv_serialization:csv_serialization
-  - farm:farm_log_quantity

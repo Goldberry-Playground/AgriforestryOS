@@ -1,9 +1,0 @@
-services:
-  _defaults:
-    autowire: true
-  asset.logs:
-    class: Drupal\farm_log\AssetLogs
-  Drupal\farm_log\AssetLogsInterface: '@asset.logs'
-  farm.log_query:
-    class: Drupal\farm_log\LogQueryFactory
-  Drupal\farm_log\LogQueryFactoryInterface: '@farm.log_query'

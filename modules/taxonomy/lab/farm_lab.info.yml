@@ -1,7 +1,0 @@
-name: Lab vocabulary
-description: Provides a Lab vocabulary.
-type: module
-package: farmOS Taxonomies
-core_version_requirement: ^11
-dependencies:
-  - drupal:taxonomy

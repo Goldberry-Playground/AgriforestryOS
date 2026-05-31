@@ -1,6 +1,0 @@
-services:
-  _defaults:
-    autowire: true
-  farm_field.factory:
-    class: Drupal\farm_field\FarmFieldFactory
-  Drupal\farm_field\FarmFieldFactoryInterface: '@farm_field.factory'

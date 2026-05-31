@@ -1,9 +1,0 @@
-name: Group Quick Form
-description: Provides a quick form for recording asset group membership changes.
-type: module
-package: farmOS Quick Forms
-core_version_requirement: ^11
-dependencies:
-  - farm:farm_group
-  - farm:farm_observation
-  - farm:farm_quick

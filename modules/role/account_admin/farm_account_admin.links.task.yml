@@ -1,4 +1,0 @@
-farm_account_admin.settings:
-  base_route: farm.setup.settings
-  route_name: farm_account_admin.settings
-  title: 'Account Admin'

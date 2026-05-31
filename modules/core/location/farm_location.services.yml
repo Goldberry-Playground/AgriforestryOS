@@ -1,9 +1,0 @@
-services:
-  _defaults:
-    autowire: true
-  asset.location:
-    class: Drupal\farm_location\AssetLocation
-  Drupal\farm_location\AssetLocationInterface: '@asset.location'
-  log.location:
-    class: Drupal\farm_location\LogLocation
-  Drupal\farm_location\LogLocationInterface: '@log.location'

@@ -1,2 +1,0 @@
-# Inherits from docker-compose.testing.common.yml
-services: {  }

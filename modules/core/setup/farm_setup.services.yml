@@ -1,9 +1,0 @@
-services:
-  _defaults:
-    autowire: true
-  farm_setup.wizard:
-    class: Drupal\farm_setup\SetupWizard
-  Drupal\farm_setup\SetupWizardInterface: '@farm_setup.wizard'
-  plugin.manager.setup_form:
-    class: Drupal\farm_setup\SetupFormPluginManager
-    parent: default_plugin_manager

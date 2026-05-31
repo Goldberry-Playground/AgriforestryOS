@@ -1,5 +1,0 @@
-name: farmOS API Test Allowed Resources
-description: 'Support module for farmOS API testing allowed resources.'
-type: module
-package: Testing
-core_version_requirement: ^11

@@ -1,7 +1,0 @@
-name: farmOS Image
-description: Provides image handling features for farmOS.
-type: module
-package: farmOS
-core_version_requirement: ^11
-dependencies:
-  - drupal:image

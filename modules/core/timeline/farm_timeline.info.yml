@@ -1,6 +1,0 @@
-name: farmOS Timeline
-description: Provides farmOS timeline features.
-type: module
-package: farmOS (Experimental)
-lifecycle: experimental
-core_version_requirement: ^11
