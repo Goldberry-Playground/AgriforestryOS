@@ -136,6 +136,8 @@ class FarmSyntropicFieldSchemaTest extends KernelTestBase {
       'planting_date',
       'source',
       'odoo_lot',
+      // Permanent vs nursery-stock tenure (set by the Odoo sync).
+      'tenure',
       // Reverse navigation to tree_planting assets.
       'parent_planting',
     ];
