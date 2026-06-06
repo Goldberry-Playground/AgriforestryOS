@@ -118,6 +118,48 @@ Claude: [calls list_infrastructure(condition="needs_repair")]
 - Test Fence (Fence Perimeter) — installed 2024-01-15, wood construction
 ```
 
+## GeoJSON export → QGIS (Sprint 4)
+
+`export_geojson.py` pulls Tree, Infrastructure, and Tree Planting assets from
+the farmOS JSON:API and writes one GeoJSON FeatureCollection per type. It
+converts each asset's `intrinsic_geometry` (WKT, WGS84) to GeoJSON and
+flattens relationship indirection (species / stratum / health /
+infrastructure_type) into flat feature properties for styling and labels.
+
+```bash
+# Export all three layers (default: ./qgis_layers/)
+uv run --project mcp-server --env-file mcp-server/.env \
+  python mcp-server/export_geojson.py
+
+# Custom output directory
+uv run --project mcp-server --env-file mcp-server/.env \
+  python mcp-server/export_geojson.py --out /path/to/layers
+```
+
+Output (EPSG:4326 / CRS84 — QGIS reprojects to the project CRS on load):
+- `trees.geojson` — points
+- `infrastructure.geojson` — mixed geometry (points, lines, polygons)
+- `plantings.geojson` — polygons / lines
+
+Assets with no usable geometry (e.g. a planned tree with null coordinates)
+are skipped and reported in the run summary rather than aborting the export.
+
+### Loading into QGIS
+
+`load_qgis_layers.py` builds a self-contained PyQGIS script that adds the
+three layers with styling matching the `GoldberryGrove_BasePlan` conventions
+(layers tagged `[farmOS]` to distinguish them from hand-drawn planning
+layers). Drive it via the QGIS MCP `execute_code` tool:
+
+```bash
+# Print the load script (paste into QGIS MCP execute_code, or QGIS console)
+uv run --project mcp-server python mcp-server/load_qgis_layers.py \
+  --dir mcp-server/qgis_layers
+```
+
+The reload is idempotent — re-running replaces the `[farmOS]` layers in place,
+so re-exporting after farmOS edits and re-loading refreshes the map.
+
 ## v1.1 preview
 
 Write tools (`create_tree`, `update_tree`, `archive_tree`) are planned for v1.1 once the read tools are validated against real Goldberry Grove data. Authentication will migrate to OAuth2 client credentials flow for production use.

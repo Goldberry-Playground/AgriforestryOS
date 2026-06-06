@@ -178,6 +178,25 @@ class Tree extends FarmAssetType {
           'view' => -5,
         ],
       ],
+      // Tenure distinguishes a permanent orchard planting from temporary
+      // nursery stock (e.g. alley-cropped eastern redbud grown between
+      // orchard trees, destined for nursery sale). Set by the Odoo->farmOS
+      // sync from the source product/category; drives distinct map styling
+      // (the GeoJSON export carries this as a feature property) and the
+      // archive-on-sale lifecycle.
+      'tenure' => [
+        'type' => 'list_string',
+        'label' => $this->t('Tenure'),
+        'description' => $this->t('Whether this is a permanent orchard planting or temporary nursery stock for sale.'),
+        'allowed_values' => [
+          'permanent' => 'Permanent (orchard planting)',
+          'nursery_stock' => 'Nursery stock (for sale)',
+        ],
+        'weight' => [
+          'form' => -3,
+          'view' => -3,
+        ],
+      ],
       // Parent planting: typed reference to a tree_planting asset.
       // FarmFieldFactory::modifyEntityReferenceField() case 'asset' (lines
       // 354-367 of FarmFieldFactory.php) honors 'target_bundle' for asset
