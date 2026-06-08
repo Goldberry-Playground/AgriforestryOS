@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- AgriforestryOS fork: `e2e_test.py` — Sprint 4 end-to-end pipeline acceptance test. Drives the real transform code across all five seams (Odoo transfer → mapping → farmOS asset shape → GeoJSON export → QGIS load script) and asserts the data contract at each stage. Runs simulated (no live services, CI-safe) by default; `--live` documents the runbook against a running Odoo + farmOS + sync stack. This test caught a real bug: `tenure` was missing from the GeoJSON export spec (see Fixed).
 - AgriforestryOS fork: `sync-service/` — Odoo ↔ farmOS sync service (Sprint 4). Bidirectional, location-driven sync keyed on Odoo lot/serial: a stock move *into* the Orchard creates a farmOS Tree asset (species term resolved/auto-created, `tenure` set from product category, geometry left null until placed); a move *out of* the Orchard archives the matching Tree. Idempotent on `odoo_lot` with a JSON cursor high-water mark. Python 3.11+, uv, httpx; basic-auth to farmOS, XML-RPC to Odoo. 23 tests, fully faked/HTTP-mocked — no live Odoo or farmOS required. Ships `mapping.py`, `odoo_client.py`, `farmos_writer.py`, `state.py`, `sync.py`, and a `Dockerfile`.
 - AgriforestryOS fork: `tenure` field on the Tree asset type (`list_string`: `permanent` | `nursery_stock`) — distinguishes permanent orchard plantings from temporary alley-crop nursery stock destined for sale. Set by the Odoo sync, carried into the GeoJSON export for distinct map styling, and drives the archive-on-sale lifecycle. Tree custom-field count goes 14 → 15; field-schema kernel test updated.
 - AgriforestryOS fork: `mcp-server/export_geojson.py` — farmOS → GeoJSON export for QGIS (Sprint 4). Fetches Tree / Infrastructure / Tree Planting assets via JSON:API, converts each asset's `intrinsic_geometry` (WKT, WGS84) to GeoJSON, and flattens relationship indirection (species / stratum / health) into flat feature properties. Writes one FeatureCollection per type; skips geometry-less assets gracefully. Companion `load_qgis_layers.py` builds a styled, idempotent PyQGIS load script. 14 added tests.
@@ -36,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- AgriforestryOS fork: `tenure` was not carried into the GeoJSON export — added it to the Tree export spec so nursery-stock trees can be styled distinctly on the QGIS placement map. Caught by the new `e2e_test.py` pipeline test; guarded by a unit regression test. Also made `export_geojson.py`'s `FarmOSClient` import lazy so the pure transform functions are reusable without installing `fastmcp`.
+- AgriforestryOS fork: restored `docker/docker-compose.development.yml`, removed in error by PR #11's upstream-source strip. It is the local dev / live-E2E harness (farmOS + Postgres, bind-mounting `./www`), now fork-maintained. Without it the development stack and the sync-service / export `--live` paths could not be brought up.
 - [Fork-scope CI linters and remove CodeQL workflow #3](https://github.com/Goldberry-Playground/AgriforestryOS/pull/3) (AgriforestryOS fork) — fixes CI runs that were failing on inherited upstream paths since the Sprint 3.5 foundation merge.
 - [Fix dashboard block title access #1075](https://github.com/farmOS/farmOS/pull/1075)
 
