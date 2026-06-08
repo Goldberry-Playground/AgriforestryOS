@@ -128,6 +128,23 @@ def test_to_features_flattens_relationships_and_skips_geomless():
     assert f["geometry"]["type"] == "Point"
 
 
+def test_tenure_is_carried_to_feature_properties():
+    # Regression: tenure must reach the GeoJSON so QGIS can style nursery
+    # stock distinctly. The E2E pipeline test caught this when tenure was
+    # added to the Tree asset but not to the export spec.
+    assert "tenure" in ex.EXPORT_SPECS["tree"]["properties"]
+    records = [{
+        "id": "t-1",
+        "attributes": {
+            "name": "Redbud A1", "tenure": "nursery_stock",
+            "intrinsic_geometry": {"value": "POINT (-80.79 38.30)"},
+        },
+        "relationships": {},
+    }]
+    features, _ = ex.to_features(records, {}, ex.EXPORT_SPECS["tree"])
+    assert features[0]["properties"]["tenure"] == "nursery_stock"
+
+
 def test_feature_collection_has_crs():
     fc = ex.feature_collection([])
     assert fc["type"] == "FeatureCollection"

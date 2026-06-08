@@ -29,7 +29,14 @@ import re
 import sys
 from pathlib import Path
 
-from client import FarmOSClient
+# NOTE: `FarmOSClient` (which pulls in fastmcp via client.py) is imported
+# lazily inside export()/fetch_all callers — the pure transform functions
+# (wkt_to_geojson, to_features, EXPORT_SPECS) have no such dependency, so
+# they can be reused (e.g. by the E2E harness) without installing fastmcp.
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from client import FarmOSClient
 
 # ---------------------------------------------------------------------------
 # Asset-type export specs
@@ -45,6 +52,9 @@ EXPORT_SPECS = {
         "properties": [
             "variety", "dbh_cm", "height_m", "canopy_radius_m",
             "rootstock", "graft_variety", "planting_date", "source", "odoo_lot",
+            # tenure (permanent | nursery_stock) drives distinct map styling —
+            # must be carried so QGIS can render nursery stock differently.
+            "tenure",
         ],
         "out_file": "trees.geojson",
     },
@@ -253,6 +263,8 @@ async def export(out_dir: Path) -> dict:
             f"Missing env vars: {', '.join(missing)}. "
             "Run: uv run --env-file .env python export_geojson.py"
         )
+
+    from client import FarmOSClient  # lazy: only the live export path needs fastmcp
 
     client = FarmOSClient(
         base_url=os.environ["FARMOS_BASE_URL"],
