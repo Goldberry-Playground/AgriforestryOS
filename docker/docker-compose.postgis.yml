@@ -1,0 +1,30 @@
+##
+# AgriforestryOS PostGIS spatial mirror (Sprint 5) — compose override.
+#
+# Adds a PostGIS database alongside the farmOS stack. This is the SPATIAL
+# MIRROR, separate from farmOS's own operational DB (the `db` service on
+# 5432): the farmOS→PostGIS ETL (postgis-etl/) populates it, QGIS draws live
+# layers from it, and the farmOS MCP server runs spatial queries against it.
+#
+# Host port 5433 (5432 is taken by the farmOS db). Connect with:
+#   POSTGIS_DSN=postgresql://farm:farm@localhost:5433/agriforestryos
+# The ETL creates the PostGIS extension + tables on first run (schema.sql).
+#
+# Usage (layer on the dev stack):
+#   cd docker/
+#   docker compose \
+#     -f docker-compose.development.yml \
+#     -f docker-compose.postgis.yml \
+#     up -d
+##
+services:
+  postgis:
+    image: postgis/postgis:16-3.4
+    volumes:
+      - './postgis-db:/var/lib/postgresql/data'
+    ports:
+      - '5433:5432'
+    environment:
+      POSTGRES_USER: farm
+      POSTGRES_PASSWORD: farm
+      POSTGRES_DB: agriforestryos
