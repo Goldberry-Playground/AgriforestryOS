@@ -2,6 +2,7 @@ site/
 
 # Docker runtime data (not source-controlled)
 docker/db/
+docker/postgis-db/
 docker/www/
 
 # Environment

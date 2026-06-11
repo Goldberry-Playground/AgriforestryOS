@@ -9,6 +9,7 @@ shape without a database.
 import db as dbmod
 from extract import ASSET_SPECS
 from etl import ETLService
+from farmos import FarmOSReadError
 
 
 # --- Fakes -----------------------------------------------------------------
@@ -71,6 +72,30 @@ def test_run_once_handles_empty_collections():
     summary = ETLService(FakeFarmOS({}), FakeDB()).run_once()
     for spec in ASSET_SPECS:
         assert summary[spec.table]["written"] == 0
+
+
+class _FarmOS404OnLand:
+    """Raises 404 for the land endpoint (asset type not installed), else empty."""
+    def fetch_all(self, endpoint, include=None):
+        if endpoint.endswith("/land"):
+            raise FarmOSReadError("HTTP 404", status_code=404)
+        return {"data": [], "included": []}
+
+
+def test_run_once_skips_absent_asset_type():
+    # A 404 (asset type not installed on this farmOS) must NOT abort the pass.
+    summary = ETLService(_FarmOS404OnLand(), FakeDB()).run_once()
+    assert summary["land_areas"]["absent"] is True
+    assert summary["trees"]["written"] == 0  # others still processed
+
+
+def test_run_once_reraises_non_404_errors():
+    class _Boom:
+        def fetch_all(self, endpoint, include=None):
+            raise FarmOSReadError("HTTP 500", status_code=500)
+    import pytest
+    with pytest.raises(FarmOSReadError):
+        ETLService(_Boom(), FakeDB()).run_once()
 
 
 # --- db.upsert SQL shape (fake cursor) -------------------------------------

@@ -23,7 +23,7 @@ import time
 
 from db import PostGISDB
 from extract import ASSET_SPECS, asset_to_row, build_name_lookup
-from farmos import FarmOSReadClient
+from farmos import FarmOSReadClient, FarmOSReadError
 
 log = logging.getLogger("farmos_postgis_etl")
 
@@ -40,7 +40,16 @@ class ETLService:
             self._db.ensure_schema(conn)
             summary: dict = {}
             for spec in ASSET_SPECS:
-                body = self._farmos.fetch_all(spec.endpoint, spec.include)
+                try:
+                    body = self._farmos.fetch_all(spec.endpoint, spec.include)
+                except FarmOSReadError as exc:
+                    # An asset type not installed on this farmOS (404) is fine —
+                    # skip it rather than failing the whole pass.
+                    if getattr(exc, "status_code", None) == 404:
+                        log.info("%s: asset type not present on this farmOS — skipped", spec.table)
+                        summary[spec.table] = {"written": 0, "skipped_no_geometry": 0, "pruned": 0, "absent": True}
+                        continue
+                    raise
                 names = build_name_lookup(body["included"])
                 rows, skipped = [], 0
                 for rec in body["data"]:

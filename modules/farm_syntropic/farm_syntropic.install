@@ -117,3 +117,50 @@ function farm_syntropic_update_8001(): string {
   return 'Dropped old capacity field (no existing data found). ' .
     'New capacity_value and capacity_unit fields are now active.';
 }
+
+/**
+ * Install field storage for tenure + parent_planting on existing sites.
+ *
+ * Both fields were added to the Tree asset type in code (the tree-planting
+ * and Odoo-sync work) without an accompanying update hook. Fresh installs are
+ * fine — bundle field storage is created when the module is installed — but
+ * EXISTING sites never got the `asset__tenure` / `asset__parent_planting`
+ * tables, so any read of a Tree (UI, JSON:API, the PostGIS ETL) failed with
+ * "Undefined table: asset__tenure".
+ *
+ * This guards on table existence (not on whether the storage definition is
+ * registered — it IS registered via the bundle plugin, the schema just was
+ * never created), so it is idempotent: a no-op on fresh installs and on
+ * re-runs, and a repair on affected existing installs.
+ */
+function farm_syntropic_update_8002(): string {
+  $update_manager = \Drupal::entityDefinitionUpdateManager();
+  $field_manager = \Drupal::service('entity_field.manager');
+  $database = \Drupal::database();
+  $field_manager->clearCachedFieldDefinitions();
+
+  $definitions = $field_manager->getFieldDefinitions('asset', 'tree');
+  $installed = [];
+  foreach (['tenure', 'parent_planting'] as $field_name) {
+    if (!isset($definitions[$field_name])) {
+      continue;
+    }
+    // Bundle fields use a dedicated table asset__<field>; if it already
+    // exists there is nothing to repair.
+    if ($database->schema()->tableExists('asset__' . $field_name)) {
+      continue;
+    }
+    $storage_definition = $definitions[$field_name]->getFieldStorageDefinition();
+    $update_manager->installFieldStorageDefinition(
+      $field_name,
+      'asset',
+      'farm_syntropic',
+      $storage_definition,
+    );
+    $installed[] = $field_name;
+  }
+
+  return $installed
+    ? 'Installed missing field storage for: ' . implode(', ', $installed) . '.'
+    : 'Tree field storage already present; nothing to do.';
+}
