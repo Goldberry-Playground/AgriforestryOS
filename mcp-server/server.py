@@ -1,9 +1,11 @@
 """
 AgriforestryOS MCP server — read-only farmOS + PostGIS tools.
 
-Six tools expose tree inventory, infrastructure, asset-type data, and spatial
-queries to Claude. The first five wrap the farmOS JSON:API; `spatial_query`
-runs against the PostGIS spatial mirror (Sprint 5) for proximity questions.
+Eight tools expose tree inventory, infrastructure, asset-type data, spatial
+queries, and harvest/yield data to Claude. Most wrap the farmOS JSON:API;
+`spatial_query` runs against the PostGIS spatial mirror (Sprint 5) for
+proximity questions; `list_harvests` / `harvest_summary` (Sprint 6) read
+the harvest log for yield tracking.
 
 Probe results (documented here for reference):
   - page[limit]=0 WITH meta.count: farmOS Drupal JSON:API returns meta.count
@@ -313,3 +315,79 @@ def spatial_query(
         raise
     except Exception as exc:  # noqa: BLE001 — surface DB/connection errors plainly
         raise ToolError(f"spatial query failed: {exc}") from exc
+
+
+# ---------------------------------------------------------------------------
+# Tools: list_harvests / harvest_summary  (Sprint 6 — yield tracking)
+# ---------------------------------------------------------------------------
+
+_HARVEST_INCLUDE = "asset,quantity,quantity.units"
+
+
+@mcp.tool()
+async def list_harvests(
+    asset_id: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    limit: int = 50,
+) -> list[dict]:
+    """List harvest logs with their harvested assets and quantities.
+
+    Args:
+        asset_id: Filter to harvests referencing this asset UUID.
+        since: ISO date/datetime — only harvests at or after this timestamp.
+        until: ISO date/datetime — only harvests at or before this timestamp.
+        limit: Max records (clamped to 500).
+
+    Returns:
+        List of harvest dicts: {id, name, timestamp, status, notes,
+        assets: [names], quantities: [{value, units, measure, label}]}.
+
+    Use for "what did we harvest from the Apple tree?" or "harvests since June".
+    """
+    import harvest
+
+    params: dict = {
+        "include": _HARVEST_INCLUDE,
+        "page[limit]": str(min(limit, 500)),
+        "sort": "-timestamp",
+    }
+    if asset_id:
+        params["filter[asset.id]"] = asset_id
+    if since:
+        params["filter[ts-since][path]"] = "timestamp"
+        params["filter[ts-since][value]"] = since
+        params["filter[ts-since][operator]"] = ">="
+    if until:
+        params["filter[ts-until][path]"] = "timestamp"
+        params["filter[ts-until][value]"] = until
+        params["filter[ts-until][operator]"] = "<="
+
+    response = await _client.get("/jsonapi/log/harvest", params=params)
+    return harvest.flatten_harvests(response)
+
+
+@mcp.tool()
+async def harvest_summary(group_by: str = "asset") -> list[dict]:
+    """Aggregate harvest quantities by a dimension.
+
+    Args:
+        group_by: 'asset' (per harvested asset), 'month' (per YYYY-MM), or
+                  'measure' (per quantity measure: count, weight, …).
+
+    Returns:
+        List of {group, total_value, harvest_count}, sorted by group.
+
+    Use for "how much have we harvested per species/month this season?".
+    """
+    import harvest
+
+    if group_by not in ("asset", "month", "measure"):
+        raise ToolError("group_by must be one of: asset, month, measure")
+
+    response = await _client.get(
+        "/jsonapi/log/harvest",
+        params={"include": _HARVEST_INCLUDE, "page[limit]": "500"},
+    )
+    harvests = harvest.flatten_harvests(response)
+    return harvest.summarize(harvests, group_by)
