@@ -106,6 +106,22 @@ mirror. Distances are in metres.
 - **When to use:** "What trees are within 30 m of the well?" (radius) or "the 5 nearest infrastructure items to this spot" (nearest-N)
 - **Requires:** `POSTGIS_DSN` set and the farmOS→PostGIS ETL (`postgis-etl/`) populated. Without it the tool returns a clear error; the other five tools are unaffected.
 
+### `list_harvests` (Sprint 6 — yield tracking)
+
+Lists harvest logs with their harvested assets and quantities.
+
+- **Parameters:** `asset_id` (filter to one asset's harvests), `since` / `until` (ISO timestamps), `limit` (default 50)
+- **Returns:** `[{id, name, timestamp, status, notes, assets: [names], quantities: [{value, units, measure, label}]}]`, newest first
+- **When to use:** "What did we harvest from the Apple tree?" or "harvests since June"
+
+### `harvest_summary` (Sprint 6 — yield tracking)
+
+Aggregates harvest quantities by a dimension.
+
+- **Parameters:** `group_by` — `asset`, `month` (YYYY-MM), or `measure` (count / weight / …)
+- **Returns:** `[{group, total_value, harvest_count}]`, sorted by group
+- **When to use:** "How much have we harvested per month this season?"
+
 ## Example session
 
 ```
