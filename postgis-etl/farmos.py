@@ -13,7 +13,15 @@ _JSONAPI = "application/vnd.api+json"
 
 
 class FarmOSReadError(RuntimeError):
-    """Unreachable farmOS or a 4xx/5xx response."""
+    """Unreachable farmOS or a 4xx/5xx response.
+
+    `status_code` is the HTTP status when the failure was an HTTP response
+    (None for connection-level errors). The ETL uses 404 to detect an asset
+    type that isn't installed on this farmOS and skip it gracefully.
+    """
+    def __init__(self, message: str, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class FarmOSReadClient:
@@ -43,7 +51,8 @@ class FarmOSReadClient:
             raise FarmOSReadError(f"farmOS is unreachable: {exc}") from exc
         if resp.status_code >= 400:
             raise FarmOSReadError(
-                f"farmOS GET {url} → HTTP {resp.status_code}: {resp.text[:200]}"
+                f"farmOS GET {url} → HTTP {resp.status_code}: {resp.text[:200]}",
+                status_code=resp.status_code,
             )
         return resp.json()
 
