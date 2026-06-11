@@ -52,6 +52,7 @@ uv run --project mcp-server --env-file mcp-server/.env agriforestryos-mcp
 | `FARMOS_USERNAME` | Yes | farmOS username |
 | `FARMOS_PASSWORD` | Yes | farmOS password |
 | `FARMOS_AUTH_MODE` | No | `basic` (default). Reserved for `oauth2` in v1.1. |
+| `POSTGIS_DSN` | No | libpq DSN for the PostGIS mirror, e.g. `postgresql://farm:farm@localhost:5433/agriforestryos`. Enables `spatial_query`; the other tools work without it. |
 
 ## Tool reference
 
@@ -94,6 +95,16 @@ Lists Infrastructure assets with optional condition/type filters.
 - **Parameters:** `condition` (`new`, `good`, `fair`, `needs_repair`, `decommissioned`), `infrastructure_type` (name string)
 - **Returns:** List of flat attribute dicts
 - **When to use:** "What infrastructure needs repair?" or "List all fence lines."
+
+### `spatial_query` (PostGIS mirror — Sprint 5)
+
+Finds assets near a point, ordered nearest-first, using the PostGIS spatial
+mirror. Distances are in metres.
+
+- **Parameters:** `asset_type` (`trees`, `infrastructure`, `plantings`, `land_areas`), `lat`, `lon` (WGS84), `within_m` (optional radius — omit for nearest-N), `limit` (default 20)
+- **Returns:** List of asset dicts each with a `distance_m` field, nearest first
+- **When to use:** "What trees are within 30 m of the well?" (radius) or "the 5 nearest infrastructure items to this spot" (nearest-N)
+- **Requires:** `POSTGIS_DSN` set and the farmOS→PostGIS ETL (`postgis-etl/`) populated. Without it the tool returns a clear error; the other five tools are unaffected.
 
 ## Example session
 

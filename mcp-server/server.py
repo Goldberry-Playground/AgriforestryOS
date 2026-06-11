@@ -1,8 +1,9 @@
 """
-AgriforestryOS MCP server — read-only farmOS JSON:API tools.
+AgriforestryOS MCP server — read-only farmOS + PostGIS tools.
 
-Five tools expose tree inventory, infrastructure, and asset-type data
-to Claude without requiring raw JSON:API filter construction.
+Six tools expose tree inventory, infrastructure, asset-type data, and spatial
+queries to Claude. The first five wrap the farmOS JSON:API; `spatial_query`
+runs against the PostGIS spatial mirror (Sprint 5) for proximity questions.
 
 Probe results (documented here for reference):
   - page[limit]=0 WITH meta.count: farmOS Drupal JSON:API returns meta.count
@@ -261,3 +262,54 @@ async def list_infrastructure(
         results.append(flat)
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Tool: spatial_query  (PostGIS mirror — Sprint 5)
+# ---------------------------------------------------------------------------
+
+@mcp.tool()
+def spatial_query(
+    asset_type: str,
+    lat: float,
+    lon: float,
+    within_m: float | None = None,
+    limit: int = 20,
+) -> list[dict]:
+    """Find assets near a point using the PostGIS spatial mirror.
+
+    Answers questions like "what trees are within 30m of the well?" or
+    "the 5 nearest infrastructure items to this spot". Results are ordered
+    nearest-first and include `distance_m` (metres).
+
+    Args:
+        asset_type: One of 'trees', 'infrastructure', 'plantings', 'land_areas'.
+        lat: Latitude of the query point (WGS84).
+        lon: Longitude of the query point (WGS84).
+        within_m: Optional radius in metres (ST_DWithin). Omit for nearest-N.
+        limit: Max results (default 20, ordered by distance).
+
+    Returns:
+        List of asset dicts with a `distance_m` field, nearest first.
+
+    Requires POSTGIS_DSN to be set (the farmOS→PostGIS ETL must have run).
+    """
+    import spatial
+
+    dsn = os.environ.get("POSTGIS_DSN")
+    if not dsn:
+        raise ToolError(
+            "Spatial queries need the PostGIS mirror. Set POSTGIS_DSN (and run "
+            "the farmOS→PostGIS ETL) to enable spatial_query."
+        )
+    if asset_type not in spatial.ASSET_TYPES:
+        raise ToolError(
+            f"unknown asset_type {asset_type!r}; expected one of "
+            f"{', '.join(spatial.ASSET_TYPES)}"
+        )
+    try:
+        return spatial.run_spatial_query(dsn, asset_type, lat, lon, within_m, limit)
+    except ToolError:
+        raise
+    except Exception as exc:  # noqa: BLE001 — surface DB/connection errors plainly
+        raise ToolError(f"spatial query failed: {exc}") from exc
