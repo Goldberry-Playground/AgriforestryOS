@@ -59,6 +59,29 @@ class FarmOSWriter:
         return resp.json()
 
     # ------------------------------------------------------------------
+    # Reads (harvest sync)
+    # ------------------------------------------------------------------
+
+    def get_harvests(self, since: str | None = None) -> dict:
+        """Fetch harvest logs (with assets + quantities + units) for the sync.
+
+        Returns the raw JSON:API body {data, included}. `since` filters to logs
+        at or after that timestamp (the harvest-sync cursor).
+        """
+        params = (
+            "?include=asset,quantity,quantity.units"
+            "&sort=timestamp&page[limit]=200"
+        )
+        if since:
+            from urllib.parse import quote
+            params += (
+                "&filter[ts][path]=timestamp"
+                f"&filter[ts][value]={quote(since)}"
+                "&filter[ts][operator]=%3E"  # >
+            )
+        return self._request("GET", f"/jsonapi/log/harvest{params}")
+
+    # ------------------------------------------------------------------
     # Lookups (idempotency)
     # ------------------------------------------------------------------
 

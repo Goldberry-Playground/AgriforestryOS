@@ -128,3 +128,63 @@ class OdooClient:
         if since:
             domain.append(["date", ">", since])
         return self._read_transfers(domain, direction="out")
+
+    # ------------------------------------------------------------------
+    # Harvest receipts (farmOS harvest → Odoo production move)
+    # ------------------------------------------------------------------
+
+    def find_product_id(self, name: str) -> int | None:
+        """Best-effort product lookup by (case-insensitive) name."""
+        if not name:
+            return None
+        ids = self._execute("product.product", "search", [["name", "ilike", name]])
+        return ids[0] if ids else None
+
+    def harvest_receipt_exists(self, origin: str) -> bool:
+        """True if a stock.move already carries this farmOS-harvest origin (dedup key)."""
+        ids = self._execute("stock.move", "search", [["origin", "=", origin]])
+        return bool(ids)
+
+    def create_harvest_receipt(self, product_id: int, quantity: float,
+                               date: str | None, origin: str) -> int:
+        """Record a harvest as an Odoo production move (Production → Stock).
+
+        A harvest creates new goods, so we model it as an incoming `stock.move`
+        from the virtual Production location into the company's stock location,
+        increasing on-hand qty of the harvested product. `origin` carries the
+        farmOS log UUID for traceability + idempotency.
+        """
+        prod_loc = self._virtual_location("production")
+        stock_loc = self._stock_location()
+        product = self._execute("product.product", "read", [product_id],
+                                fields=["name", "uom_id"])[0]
+        move = {
+            "name": product["name"],
+            "product_id": product_id,
+            "product_uom": product["uom_id"][0],
+            "product_uom_qty": quantity,
+            "location_id": prod_loc,
+            "location_dest_id": stock_loc,
+            "origin": origin,
+        }
+        if date:
+            move["date"] = date.replace("T", " ")[:19]
+        move_id = self._execute("stock.move", "create", [move])
+        # Confirm + mark done so on-hand stock actually increases.
+        self._execute("stock.move", "_action_confirm", [move_id])
+        self._execute("stock.move", "_action_done", [move_id])
+        return move_id
+
+    def _virtual_location(self, kind: str) -> int:
+        """Resolve a virtual location id by usage ('production', 'inventory')."""
+        ids = self._execute("stock.location", "search", [["usage", "=", kind]])
+        if not ids:
+            raise OdooError(f"no virtual stock.location with usage={kind!r}")
+        return ids[0]
+
+    def _stock_location(self) -> int:
+        ids = self._execute("stock.location", "search",
+                            [["usage", "=", "internal"]])
+        if not ids:
+            raise OdooError("no internal stock.location found")
+        return ids[0]

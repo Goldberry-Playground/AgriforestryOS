@@ -73,6 +73,26 @@ services:
       NURSERY_STOCK_CATEGORIES: ${NURSERY_STOCK_CATEGORIES:-}
       POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-900}
 
+  harvest-sync:
+    depends_on:
+      - www
+    build:
+      context: ../sync-service
+    # Same image as sync-service; runs the harvest→Odoo receipt sync instead.
+    entrypoint: ["uv", "run", "--no-dev", "python", "harvest_sync.py"]
+    restart: unless-stopped
+    volumes:
+      - 'harvest_state:/data'
+    environment:
+      ODOO_URL: ${ODOO_URL}
+      ODOO_DB: ${ODOO_DB}
+      ODOO_USER: ${ODOO_USER}
+      ODOO_PASSWORD: ${ODOO_PASSWORD}
+      FARMOS_BASE_URL: 'http://www'
+      FARMOS_USERNAME: ${FARMOS_USERNAME}
+      FARMOS_PASSWORD: ${FARMOS_PASSWORD}
+      HARVEST_POLL_SECONDS: ${HARVEST_POLL_SECONDS:-900}
+
   postgis-etl:
     depends_on:
       - www
@@ -90,3 +110,4 @@ services:
 volumes:
   farmos_sites:
   sync_state:
+  harvest_state:

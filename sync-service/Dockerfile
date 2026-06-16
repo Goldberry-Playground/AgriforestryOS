@@ -10,7 +10,7 @@ COPY README.md ./
 RUN uv sync --no-dev || uv pip install --system "httpx>=0.27,<1"
 
 # Application code.
-COPY mapping.py odoo_client.py farmos_writer.py state.py sync.py ./
+COPY mapping.py odoo_client.py farmos_writer.py state.py sync.py harvest_sync.py ./
 
 # Cursor state lives on a mounted volume so it survives restarts.
 VOLUME ["/data"]
