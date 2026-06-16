@@ -1,0 +1,39 @@
+name: Production farmOS image build
+
+# Builds the pinned production farmOS image (docker/farmos.Dockerfile) to prove
+# it builds — i.e. the pinned base digest is still pullable and the module
+# COPY is valid. The smoke test already verifies the module behaves in a real
+# farmOS; this just guards the prod image definition itself.
+# Advisory only in v1 — promote to required check after first clean run.
+
+on:
+  pull_request:
+    branches: [4.x, 'feature/**']
+    paths:
+      - 'docker/farmos.Dockerfile'
+      - 'modules/farm_syntropic/**'
+      - '.github/workflows/farmos-image-ci.yml'
+  push:
+    branches: [4.x]
+    paths:
+      - 'docker/farmos.Dockerfile'
+      - 'modules/farm_syntropic/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: farmos-image-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: docker build (pinned farmOS + module)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the production farmOS image
+        # Context is the repo root so the Dockerfile can COPY modules/.
+        run: docker build -f docker/farmos.Dockerfile -t agriforestryos/farmos:ci .

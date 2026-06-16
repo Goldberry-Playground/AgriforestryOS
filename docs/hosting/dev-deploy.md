@@ -82,8 +82,11 @@ deploy.
 - ✅ **DB backups + backup-before-migrate** — the `backup` service dumps both
   DBs daily to a local volume + DO Spaces, and the migrate workflow snapshots
   before `drush updb`. See `docs/hosting/backups.md`.
-- ⬜ The dev `www` uses the `farmos/farmos:4.x-dev` image with the module
-  bind-mounted. Prod should build a pinned farmOS image (composer) instead.
+- ✅ **Pinned production farmOS image** — `docker/farmos.Dockerfile` pins the
+  farmOS base by digest and bakes `farm_syntropic` in (no live bind-mount,
+  Xdebug off). `docker-compose.prod.yml` builds it; `up -d --build` ships
+  committed module changes. Bump the digest deliberately to advance farmOS.
+  (Local dev still uses `docker-compose.development.yml` with the bind-mount.)
 - ⬜ **Private-mesh access (Tailscale)** instead of public TLS — farmOS/Odoo
   reachable only over the tailnet; WireGuard encrypts transit so basic auth is
   acceptable and no public certs are needed.

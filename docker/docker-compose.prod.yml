@@ -29,15 +29,21 @@ services:
   www:
     depends_on:
       - db
-    image: farmos/farmos:4.x-dev
+    # Production image: pinned farmOS base (by digest) with farm_syntropic baked
+    # in — NOT the moving 4.x-dev tag, and NOT a live bind-mount. `up -d --build`
+    # (what the deploy workflow runs) rebuilds this so committed module changes
+    # ship. See docker/farmos.Dockerfile.
+    build:
+      context: ..
+      dockerfile: docker/farmos.Dockerfile
+    image: agriforestryos/farmos:local
     restart: unless-stopped
     ports:
       - '80:80'
     volumes:
       # Persist the site (settings.php + sites/default/files) across restarts.
+      # The module is image content now, so it is NOT mounted here.
       - 'farmos_sites:/opt/drupal/web/sites'
-      # Live-mount our custom module from the cloned repo.
-      - '../modules/farm_syntropic:/opt/drupal/web/modules/farm_syntropic'
     environment:
       # Xdebug OFF on the server — it cripples request latency.
       XDEBUG_MODE: 'off'
