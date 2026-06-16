@@ -4,6 +4,12 @@
 # Your SSH public key (paste the contents of ~/.ssh/id_ed25519.pub or similar).
 ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5... you@host"
 
+# Tailscale auth key (REQUIRED — this environment is private-mesh-only).
+# Prefer setting it via the environment instead of this file, so the secret
+# never lands on disk:  export TF_VAR_tailscale_auth_key=tskey-auth-...
+# Use a reusable, tagged, ephemeral, pre-authorized key (tag:agriforestryos).
+# tailscale_auth_key = "tskey-auth-xxxxxxraw..."
+
 # Optional overrides:
 # environment   = "dev"
 # region        = "nyc3"

@@ -20,3 +20,8 @@ output "app_dir" {
   description = "Where the repo is cloned / the stack runs on the host."
   value       = "/opt/agriforestryos/repo"
 }
+
+output "farmos_url_note" {
+  description = "How to reach farmOS — tailnet only (no public web port)."
+  value       = "farmOS is private-mesh-only: browse to http://${local.name} (Tailscale MagicDNS) or the host's tailnet IP from a device on the tailnet. Public 80/443 are firewalled off."
+}

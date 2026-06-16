@@ -15,9 +15,9 @@ Terraform's `reserved_ip` output is the deploy **target** the workflow points at
 
 | Resource | Purpose |
 |---|---|
-| `digitalocean_droplet` | Ubuntu 24.04 Docker host (default 4GB/2vCPU). cloud-init installs Docker, creates a `deploy` user, clones the repo, sets `ufw`. |
-| `digitalocean_reserved_ip` | Stable IP that survives droplet rebuilds — the permanent deploy target / future DNS A record. |
-| `digitalocean_firewall` | Inbound 22/80/443 only. **Postgres/PostGIS (5432/5433) are NOT exposed** — services use the internal docker network; operators tunnel over SSH. |
+| `digitalocean_droplet` | Ubuntu 24.04 Docker host (default 4GB/2vCPU). cloud-init installs Docker, creates a `deploy` user, clones the repo, **joins the tailnet**, sets `ufw`. |
+| `digitalocean_reserved_ip` | Stable IP that survives droplet rebuilds — the SSH/CI deploy target. |
+| `digitalocean_firewall` | **Private-mesh only:** inbound `22/tcp` (SSH break-glass + CI) + `41641/udp` (Tailscale). **No public 80/443** — farmOS is reachable only over the tailnet. Postgres/PostGIS (5432/5433) never exposed. This cloud firewall is the real control (it isn't bypassed by Docker's published ports, unlike `ufw`). |
 | `digitalocean_ssh_key` | Registers your public key for droplet access. |
 
 ## Prerequisites
@@ -29,8 +29,9 @@ Terraform's `reserved_ip` output is the deploy **target** the workflow points at
 ```bash
 cd infra/terraform
 
-# 1. Auth — token via env var, never in files:
+# 1. Auth + secrets — via env vars, never in files:
 export DIGITALOCEAN_TOKEN=dop_v1_xxxxxxxx
+export TF_VAR_tailscale_auth_key=tskey-auth-...   # reusable, tagged, ephemeral
 
 # 2. Inputs:
 cp terraform.tfvars.example terraform.tfvars

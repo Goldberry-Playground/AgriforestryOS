@@ -34,12 +34,20 @@ runcmd:
   - chown -R deploy:deploy /opt/agriforestryos
   # Clone the repo so the box is deploy-ready (GHA pulls + composes after this).
   - sudo -u deploy git clone --branch ${repo_branch} ${repo_url} /opt/agriforestryos/repo || true
-  # Firewall: SSH + HTTP/HTTPS only. DB ports (5432/5433) stay closed to the
-  # internet — services reach the DBs over the internal docker network; an
-  # operator uses an SSH tunnel for psql/QGIS. This is the secure default.
+  # Tailscale: join the tailnet. farmOS is reachable ONLY over this mesh — the
+  # cloud firewall blocks public 80/443. WireGuard encrypts all of it, so basic
+  # auth over http on the tailnet is acceptable. --ssh also offers SSH over the
+  # tailnet (public 22 stays as break-glass).
+  - curl -fsSL https://tailscale.com/install.sh | sh
+  - tailscale up --authkey='${tailscale_auth_key}' --hostname='${tailscale_hostname}' --ssh
+  # ufw is defense-in-depth only. NOTE: Docker's published ports bypass ufw, so
+  # ufw is NOT what protects farmOS from the internet — the DigitalOcean cloud
+  # firewall is (see infra/terraform/main.tf). We allow SSH + anything arriving
+  # on the tailnet interface; DB ports stay off the public internet either way.
+  - ufw default deny incoming
+  - ufw default allow outgoing
   - ufw allow 22/tcp
-  - ufw allow 80/tcp
-  - ufw allow 443/tcp
+  - ufw allow in on tailscale0
   - ufw --force enable
 
-final_message: "AgriforestryOS dev host ready after $UPTIME s — Docker installed, repo cloned to /opt/agriforestryos/repo."
+final_message: "AgriforestryOS host ready after $UPTIME s — Docker installed, joined tailnet, repo cloned to /opt/agriforestryos/repo. farmOS is tailnet-only."
