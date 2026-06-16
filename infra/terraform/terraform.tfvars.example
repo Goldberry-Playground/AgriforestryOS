@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+# The DO API token is NOT here — export DIGITALOCEAN_TOKEN instead.
+
+# Your SSH public key (paste the contents of ~/.ssh/id_ed25519.pub or similar).
+ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5... you@host"
+
+# Optional overrides:
+# environment   = "dev"
+# region        = "nyc3"
+# droplet_size  = "s-2vcpu-4gb"
+# repo_branch   = "4.x"

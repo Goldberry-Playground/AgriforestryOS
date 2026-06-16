@@ -1,0 +1,9 @@
+# Terraform state may contain sensitive values — never commit it.
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+# Real variable files (keep only the .example).
+terraform.tfvars
+*.auto.tfvars
