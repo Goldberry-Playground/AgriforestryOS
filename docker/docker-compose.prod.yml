@@ -1,0 +1,92 @@
+##
+# AgriforestryOS server stack (dev environment on the Terraform-provisioned
+# droplet). ONE deploy unit: farmOS + Postgres + PostGIS + the two Python
+# sync/ETL services. The MCP server and QGIS are operator-local tools and are
+# intentionally NOT here.
+#
+# Config comes entirely from /opt/agriforestryos/.env (written at deploy time
+# from GitHub/1Password secrets) — no secrets in this file.
+#
+# Usage on the host (the deploy workflow runs this):
+#   docker compose --env-file /opt/agriforestryos/.env \
+#     -f docker/docker-compose.prod.yml up -d --build
+#
+# Migrations (drush updb) and the one-time farmOS install are MANUAL — see
+# docs/hosting/dev-deploy.md. This stack never runs updb automatically.
+##
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    volumes:
+      - './db:/var/lib/postgresql/data'
+    environment:
+      POSTGRES_USER: ${FARMOS_DB_USER}
+      POSTGRES_PASSWORD: ${FARMOS_DB_PASSWORD}
+      POSTGRES_DB: ${FARMOS_DB_NAME}
+    # No published ports — only reachable on the internal docker network.
+
+  www:
+    depends_on:
+      - db
+    image: farmos/farmos:4.x-dev
+    restart: unless-stopped
+    ports:
+      - '80:80'
+    volumes:
+      # Persist the site (settings.php + sites/default/files) across restarts.
+      - 'farmos_sites:/opt/drupal/web/sites'
+      # Live-mount our custom module from the cloned repo.
+      - '../modules/farm_syntropic:/opt/drupal/web/modules/farm_syntropic'
+    environment:
+      # Xdebug OFF on the server — it cripples request latency.
+      XDEBUG_MODE: 'off'
+
+  postgis:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    volumes:
+      - './postgis-db:/var/lib/postgresql/data'
+    environment:
+      POSTGRES_USER: ${POSTGIS_USER}
+      POSTGRES_PASSWORD: ${POSTGIS_PASSWORD}
+      POSTGRES_DB: ${POSTGIS_DB}
+    # No published ports — internal network + SSH tunnel only.
+
+  sync-service:
+    depends_on:
+      - www
+    build:
+      context: ../sync-service
+    restart: unless-stopped
+    volumes:
+      - 'sync_state:/data'
+    environment:
+      ODOO_URL: ${ODOO_URL}
+      ODOO_DB: ${ODOO_DB}
+      ODOO_USER: ${ODOO_USER}
+      ODOO_PASSWORD: ${ODOO_PASSWORD}
+      FARMOS_BASE_URL: 'http://www'
+      FARMOS_USERNAME: ${FARMOS_USERNAME}
+      FARMOS_PASSWORD: ${FARMOS_PASSWORD}
+      ODOO_ORCHARD_LOCATION: ${ODOO_ORCHARD_LOCATION:-Orchard}
+      NURSERY_STOCK_CATEGORIES: ${NURSERY_STOCK_CATEGORIES:-}
+      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-900}
+
+  postgis-etl:
+    depends_on:
+      - www
+      - postgis
+    build:
+      context: ../postgis-etl
+    restart: unless-stopped
+    environment:
+      FARMOS_BASE_URL: 'http://www'
+      FARMOS_USERNAME: ${FARMOS_USERNAME}
+      FARMOS_PASSWORD: ${FARMOS_PASSWORD}
+      POSTGIS_DSN: 'postgresql://${POSTGIS_USER}:${POSTGIS_PASSWORD}@postgis:5432/${POSTGIS_DB}'
+      ETL_INTERVAL_SECONDS: ${ETL_INTERVAL_SECONDS:-900}
+
+volumes:
+  farmos_sites:
+  sync_state:
