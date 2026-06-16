@@ -50,6 +50,10 @@ jobs:
             COMPOSE="docker compose --env-file /opt/agriforestryos/.env -f docker-compose.prod.yml"
             echo "== Pending updates =="
             $COMPOSE exec -T www drush updatedb:status || true
+            echo "== Pre-migrate snapshot (backup before updb) =="
+            # A migration is exactly where a bad update hook can corrupt data, so
+            # snapshot both DBs first. This MUST succeed before we touch updb.
+            $COMPOSE run --rm --no-deps backup --once --reason premigrate
             echo "== Applying updates =="
             $COMPOSE exec -T www drush updb -y
             if [ "${DO_CIM:-false}" = "true" ]; then

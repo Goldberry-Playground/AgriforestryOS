@@ -78,9 +78,14 @@ The MCP server and QGIS are **operator-local tools** — they run next to Claude
 on your machine, not on the server. Only farmOS + the two Python services
 deploy.
 
-## Notes / future hardening
-- The dev `www` uses the `farmos/farmos:4.x-dev` image with the module
-  bind-mounted. A production environment should build a pinned farmOS image
-  (composer) instead, add TLS (Caddy/Traefik), DB backups-before-migrate, and a
-  required-reviewer approval gate on a `prod` GitHub Environment.
+## Notes / future hardening (Sprint 7: production readiness)
+- ✅ **DB backups + backup-before-migrate** — the `backup` service dumps both
+  DBs daily to a local volume + DO Spaces, and the migrate workflow snapshots
+  before `drush updb`. See `docs/hosting/backups.md`.
+- ⬜ The dev `www` uses the `farmos/farmos:4.x-dev` image with the module
+  bind-mounted. Prod should build a pinned farmOS image (composer) instead.
+- ⬜ **Private-mesh access (Tailscale)** instead of public TLS — farmOS/Odoo
+  reachable only over the tailnet; WireGuard encrypts transit so basic auth is
+  acceptable and no public certs are needed.
+- ⬜ **Required-reviewer approval gate** on a `prod` GitHub Environment.
 - State/secrets: `terraform.tfstate` and the server `.env` are never committed.

@@ -107,7 +107,37 @@ services:
       POSTGIS_DSN: 'postgresql://${POSTGIS_USER}:${POSTGIS_PASSWORD}@postgis:5432/${POSTGIS_DB}'
       ETL_INTERVAL_SECONDS: ${ETL_INTERVAL_SECONDS:-900}
 
+  backup:
+    depends_on:
+      - db
+      - postgis
+    build:
+      context: ../backup-service
+    restart: unless-stopped
+    volumes:
+      # Local dumps. In prod this dir should sit on an attached DO block-storage
+      # volume (see infra/terraform) so it survives droplet replacement; the
+      # off-droplet copy goes to Spaces regardless.
+      - 'backups:/backups'
+    environment:
+      FARMOS_DB_USER: ${FARMOS_DB_USER}
+      FARMOS_DB_PASSWORD: ${FARMOS_DB_PASSWORD}
+      FARMOS_DB_NAME: ${FARMOS_DB_NAME}
+      POSTGIS_USER: ${POSTGIS_USER}
+      POSTGIS_PASSWORD: ${POSTGIS_PASSWORD}
+      POSTGIS_DB: ${POSTGIS_DB}
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      # Spaces (off-droplet copy). Omit to run local-only.
+      SPACES_BUCKET: ${SPACES_BUCKET:-}
+      SPACES_KEY: ${SPACES_KEY:-}
+      SPACES_SECRET: ${SPACES_SECRET:-}
+      SPACES_ENDPOINT: ${SPACES_ENDPOINT:-https://nyc3.digitaloceanspaces.com}
+      SPACES_REGION: ${SPACES_REGION:-nyc3}
+      BACKUP_S3_PREFIX: ${BACKUP_S3_PREFIX:-agriforestryos/backups}
+
 volumes:
   farmos_sites:
   sync_state:
   harvest_state:
+  backups:
