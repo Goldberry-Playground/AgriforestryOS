@@ -7,3 +7,8 @@ docker/www/
 
 # Environment
 .env
+
+# Python caches / virtualenvs (backup-service)
+backup-service/__pycache__/
+backup-service/**/__pycache__/
+backup-service/.venv/
