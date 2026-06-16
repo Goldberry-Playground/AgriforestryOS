@@ -60,3 +60,14 @@ variable "tags" {
   type        = list(string)
   default     = []
 }
+
+variable "backups_volume_size_gb" {
+  description = <<-EOT
+    Size (GiB) of an attached block-storage volume for the local backups
+    directory (/opt/agriforestryos/backups), so backups survive droplet
+    replacement. 0 = no volume (backups land on the droplet's own disk — fine
+    for dev). Set this for prod (e.g. 10).
+  EOT
+  type        = number
+  default     = 0
+}

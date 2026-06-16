@@ -30,7 +30,17 @@ runcmd:
   - usermod -aG docker deploy
   - systemctl enable --now docker
   # App directory, owned by the deploy user.
-  - mkdir -p /opt/agriforestryos
+  - mkdir -p /opt/agriforestryos/backups
+  # If a backups block-volume is attached, format (once) + mount it at the
+  # backups dir so dumps survive droplet replacement. `nofail` so a missing/
+  # bad device never blocks boot. No volume (dev) → the dir is just disk.
+  - |
+    DEV='${backups_device}'
+    if [ -n "$DEV" ] && [ -b "$DEV" ]; then
+      blkid "$DEV" >/dev/null 2>&1 || mkfs.ext4 -F "$DEV"
+      grep -q "$DEV" /etc/fstab || echo "$DEV /opt/agriforestryos/backups ext4 defaults,nofail,discard 0 2" >> /etc/fstab
+      mount -a
+    fi
   - chown -R deploy:deploy /opt/agriforestryos
   # Clone the repo so the box is deploy-ready (GHA pulls + composes after this).
   - sudo -u deploy git clone --branch ${repo_branch} ${repo_url} /opt/agriforestryos/repo || true
