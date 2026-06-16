@@ -22,10 +22,15 @@ Two principles, both deliberate:
 ```bash
 cd infra/terraform
 export DIGITALOCEAN_TOKEN=dop_v1_...
-cp terraform.tfvars.example terraform.tfvars   # paste your SSH public key
+export TF_VAR_tailscale_auth_key=tskey-auth-...   # reusable, tagged, ephemeral key
+cp terraform.tfvars.example terraform.tfvars      # paste your SSH public key
 terraform init && terraform apply
-terraform output -raw reserved_ip              # the deploy target
+terraform output -raw reserved_ip                 # the deploy target (SSH/CI over public :22)
 ```
+The box joins your **tailnet** on boot. farmOS has **no public web port** — the
+cloud firewall allows only `22/tcp` (SSH break-glass + CI deploy) and
+`41641/udp` (Tailscale). Reach farmOS at `http://agriforestryos-dev` (MagicDNS)
+from any device on the tailnet.
 
 ### 2. Configure GitHub (secrets + the enable gate)
 Secrets sourced from **1Password** (single source of truth). Either paste them
@@ -66,17 +71,21 @@ $COMPOSE up -d                       # bring up sync-service + postgis-etl
   It prints `drush updatedb:status` first, then applies. Tick *config_import*
   if the change also alters exported config.
 
-## Operator access to the databases
-The DB ports (5432/5433) are firewalled off the public internet. Reach them via
-an SSH tunnel:
-```bash
-ssh -L 5433:localhost:5433 deploy@<reserved_ip>   # then QGIS/psql → localhost:5433
-```
+## Operator access
+- **farmOS** — tailnet only. From a device on the tailnet: `http://agriforestryos-dev`
+  (MagicDNS) or the host's tailnet IP. There is no public web port.
+- **Databases** — DB ports (5432/5433) are never exposed (not in the cloud
+  firewall). Reach them over the tailnet, or via an SSH tunnel on the
+  break-glass port:
+  ```bash
+  ssh -L 5433:localhost:5433 deploy@<reserved_ip>   # then QGIS/psql → localhost:5433
+  ```
 
 ## Not deployed here
 The MCP server and QGIS are **operator-local tools** — they run next to Claude
-on your machine, not on the server. Only farmOS + the two Python services
-deploy.
+on your machine, not on the server. Only farmOS + the Python services deploy.
+Because farmOS is tailnet-only, the operator machine must be **on the tailnet**;
+point the MCP server's `FARMOS_BASE_URL` at `http://agriforestryos-dev`.
 
 ## Notes / future hardening (Sprint 7: production readiness)
 - ✅ **DB backups + backup-before-migrate** — the `backup` service dumps both
@@ -87,8 +96,10 @@ deploy.
   Xdebug off). `docker-compose.prod.yml` builds it; `up -d --build` ships
   committed module changes. Bump the digest deliberately to advance farmOS.
   (Local dev still uses `docker-compose.development.yml` with the bind-mount.)
-- ⬜ **Private-mesh access (Tailscale)** instead of public TLS — farmOS/Odoo
-  reachable only over the tailnet; WireGuard encrypts transit so basic auth is
-  acceptable and no public certs are needed.
+- ✅ **Private-mesh access (Tailscale)** instead of public TLS — cloud-init
+  joins the tailnet; the cloud firewall drops public 80/443 (only `22/tcp` +
+  `41641/udp` remain). farmOS is reachable only over the tailnet, where
+  WireGuard encrypts transit so basic auth is acceptable and no public certs
+  are needed. Requires `TF_VAR_tailscale_auth_key` at apply.
 - ⬜ **Required-reviewer approval gate** on a `prod` GitHub Environment.
 - State/secrets: `terraform.tfstate` and the server `.env` are never committed.

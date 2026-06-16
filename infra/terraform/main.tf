@@ -24,9 +24,11 @@ resource "digitalocean_droplet" "host" {
   tags     = local.common_tags
 
   user_data = templatefile("${path.module}/cloud-init.yaml", {
-    ssh_public_key = var.ssh_public_key
-    repo_url       = var.repo_url
-    repo_branch    = var.repo_branch
+    ssh_public_key     = var.ssh_public_key
+    repo_url           = var.repo_url
+    repo_branch        = var.repo_branch
+    tailscale_auth_key = var.tailscale_auth_key
+    tailscale_hostname = local.name
   })
 
   # Recreate if cloud-init changes meaningfully; keep the reserved IP stable.
@@ -46,8 +48,14 @@ resource "digitalocean_reserved_ip_assignment" "host" {
   droplet_id = digitalocean_droplet.host.id
 }
 
-# Cloud firewall (defense in depth alongside ufw): SSH + web in; DB ports
-# deliberately absent so Postgres/PostGIS are never internet-exposed.
+# Cloud firewall — the REAL public-exposure control (it sits at the NIC, so
+# unlike ufw it is NOT bypassed by Docker's published ports). This environment
+# is private-mesh-only:
+#   - 22/tcp  SSH break-glass (key-only) — kept so a Tailscale failure can't
+#             lock us out, and so the GitHub Actions deploy reaches the box.
+#   - 41641/udp  Tailscale direct connections (falls back to DERP if blocked).
+#   - NO 80/443: farmOS is reachable ONLY over the tailnet (via tailscale0).
+#   - DB ports deliberately absent — Postgres/PostGIS never internet-exposed.
 resource "digitalocean_firewall" "host" {
   name        = "${local.name}-fw"
   droplet_ids = [digitalocean_droplet.host.id]
@@ -59,13 +67,8 @@ resource "digitalocean_firewall" "host" {
     source_addresses = ["0.0.0.0/0", "::/0"]
   }
   inbound_rule {
-    protocol         = "tcp"
-    port_range       = "80"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  }
-  inbound_rule {
-    protocol         = "tcp"
-    port_range       = "443"
+    protocol         = "udp"
+    port_range       = "41641"
     source_addresses = ["0.0.0.0/0", "::/0"]
   }
 

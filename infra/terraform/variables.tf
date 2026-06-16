@@ -43,6 +43,18 @@ variable "repo_branch" {
   default     = "4.x"
 }
 
+variable "tailscale_auth_key" {
+  description = <<-EOT
+    Tailscale auth key used by cloud-init to join the droplet to your tailnet.
+    Use a PRE-AUTHORIZED, REUSABLE, TAGGED, EPHEMERAL key (e.g. tag:agriforestryos)
+    from https://login.tailscale.com/admin/settings/keys. Sourced from 1Password,
+    set via `TF_VAR_tailscale_auth_key` or terraform.tfvars (gitignored) — never
+    committed. Required: this environment is private-mesh-only (no public web).
+  EOT
+  type        = string
+  sensitive   = true
+}
+
 variable "tags" {
   description = "Extra DO tags applied to all resources."
   type        = list(string)
