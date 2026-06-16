@@ -5,6 +5,30 @@
 locals {
   name        = "agriforestryos-${var.environment}"
   common_tags = concat(["agriforestryos", var.environment], var.tags)
+
+  # When a backups volume exists, DO attaches it at a deterministic by-id path
+  # derived from the volume name. cloud-init formats + mounts it (nofail).
+  backups_volume_name = "${local.name}-backups"
+  backups_device = var.backups_volume_size_gb > 0 ? (
+    "/dev/disk/by-id/scsi-0DO_Volume_${local.backups_volume_name}"
+  ) : ""
+}
+
+# Optional block-storage volume for the backups directory — keeps backups when
+# the droplet is replaced. Created only when backups_volume_size_gb > 0.
+resource "digitalocean_volume" "backups" {
+  count                   = var.backups_volume_size_gb > 0 ? 1 : 0
+  name                    = local.backups_volume_name
+  region                  = var.region
+  size                    = var.backups_volume_size_gb
+  initial_filesystem_type = "ext4"
+  tags                    = local.common_tags
+}
+
+resource "digitalocean_volume_attachment" "backups" {
+  count      = var.backups_volume_size_gb > 0 ? 1 : 0
+  droplet_id = digitalocean_droplet.host.id
+  volume_id  = digitalocean_volume.backups[0].id
 }
 
 # SSH key registered with DO from your public key; used for droplet access.
@@ -29,6 +53,7 @@ resource "digitalocean_droplet" "host" {
     repo_branch        = var.repo_branch
     tailscale_auth_key = var.tailscale_auth_key
     tailscale_hostname = local.name
+    backups_device     = local.backups_device
   })
 
   # Recreate if cloud-init changes meaningfully; keep the reserved IP stable.

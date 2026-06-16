@@ -146,4 +146,12 @@ volumes:
   farmos_sites:
   sync_state:
   harvest_state:
+  # Bound to a host path so prod can put it on an attached block-storage volume
+  # (backups survive droplet replacement); on dev the path is just droplet disk.
+  # cloud-init (infra/terraform) creates/mounts /opt/agriforestryos/backups.
   backups:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/agriforestryos/backups

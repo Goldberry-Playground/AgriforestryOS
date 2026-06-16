@@ -101,5 +101,8 @@ point the MCP server's `FARMOS_BASE_URL` at `http://agriforestryos-dev`.
   `41641/udp` remain). farmOS is reachable only over the tailnet, where
   WireGuard encrypts transit so basic auth is acceptable and no public certs
   are needed. Requires `TF_VAR_tailscale_auth_key` at apply.
-- ⬜ **Required-reviewer approval gate** on a `prod` GitHub Environment.
+- ✅ **Prod tier + required-reviewer approval gate** — `deploy-prod.yml` /
+  `migrate-prod.yml` run against a separate prod droplet (Terraform workspace +
+  a block-storage backups volume) and pause on the `prod` GitHub Environment's
+  required reviewer before touching prod. Full runbook: `docs/hosting/prod-deploy.md`.
 - State/secrets: `terraform.tfstate` and the server `.env` are never committed.

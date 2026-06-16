@@ -1,0 +1,78 @@
+name: Deploy to prod
+
+# Promotes a released ref to the PRODUCTION droplet. Unlike dev (auto on every
+# merge), prod is DELIBERATE: it runs only on a version tag or manual dispatch,
+# and the `prod` GitHub Environment gates it behind a REQUIRED REVIEWER — the
+# "human approves → prod" step. The run pauses until a reviewer approves.
+#
+# Deploys CODE only — migrations (drush updb) are the separate manual
+# migrate-prod workflow, which snapshots the DB first.
+#
+# Dormant until configured (vars.DEPLOY_PROD_ENABLED == 'true'). Required:
+#   - GitHub Environment `prod` with a required reviewer (see docs/hosting/prod-deploy.md)
+#   - secrets (environment-scoped): DEPLOY_PROD_HOST, DEPLOY_PROD_SSH_KEY, PROD_ENV_FILE
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref (tag/branch/SHA) to deploy to prod."
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy app to prod droplet
+    runs-on: ubuntu-latest
+    if: ${{ vars.DEPLOY_PROD_ENABLED == 'true' }}
+    environment: prod          # ← required-reviewer approval gate enforced here
+    timeout-minutes: 15
+    steps:
+      - name: Write SSH key + env file
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_PROD_SSH_KEY }}
+          ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$ENV_FILE" > /tmp/agri.env
+
+      - name: Ship env + deploy stack
+        env:
+          HOST: ${{ secrets.DEPLOY_PROD_HOST }}
+          # Tag push → the tag; manual → the dispatch input. Passed via env (not
+          # inlined into the script) to keep it away from the shell parser.
+          DEPLOY_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref_name }}
+        run: |
+          # Reject any ref containing shell metacharacters before it is ever
+          # interpolated into the remote command (defense against ref injection).
+          case "$DEPLOY_REF" in
+            ""|*[!A-Za-z0-9._/-]*)
+              echo "Refusing unsafe deploy ref: '$DEPLOY_REF'" >&2; exit 1 ;;
+          esac
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new"
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
+            /tmp/agri.env "deploy@${HOST}:/opt/agriforestryos/.env"
+          $SSH "deploy@${HOST}" 'chmod 600 /opt/agriforestryos/.env'
+          $SSH "deploy@${HOST}" "DEPLOY_REF=${DEPLOY_REF}" bash -s <<'REMOTE'
+            set -euo pipefail
+            cd /opt/agriforestryos/repo
+            git fetch --all --tags --quiet
+            git checkout --force "${DEPLOY_REF}"
+            cd docker
+            docker compose --env-file /opt/agriforestryos/.env \
+              -f docker-compose.prod.yml up -d --build
+            # DB migrations (drush updb) are NOT run here — see migrate-prod.yml.
+            docker compose --env-file /opt/agriforestryos/.env \
+              -f docker-compose.prod.yml exec -T www drush cr || true
+          REMOTE
