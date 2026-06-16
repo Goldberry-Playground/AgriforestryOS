@@ -83,4 +83,19 @@ uv run --project sync-service pytest sync-service/tests/ -v
 | `odoo_client.py` | XML-RPC client → normalized `Transfer` objects |
 | `farmos_writer.py` | JSON:API writes: create/archive Tree, resolve species term |
 | `state.py` | Sync cursor persistence (JSON high-water mark) |
-| `sync.py` | `SyncService` orchestration + poll-loop entry point |
+| `sync.py` | `SyncService` orchestration + poll-loop entry point (Odoo → farmOS) |
+| `harvest_sync.py` | `HarvestSyncService` — farmOS harvest logs → Odoo production receipts (the reverse direction). Separate entry point `agriforestryos-harvest-sync`. |
+
+## Harvest → Odoo receipt sync
+
+The reverse, event-driven flow (`agriforestryos-harvest-sync`): polls farmOS for
+new harvest logs and records each harvested quantity in Odoo as a **production
+`stock.move`** (virtual Production → stock), increasing on-hand qty of the
+matched product. The farmOS log UUID is the move `origin` and idempotency key.
+Products are matched by name (quantity label); unmatched are skipped, not
+created. Runs off the same image with `python harvest_sync.py` and its own
+`HARVEST_SYNC_STATE_FILE` cursor.
+
+```bash
+uv run --project sync-service --env-file sync-service/.env python sync-service/harvest_sync.py --once
+```
