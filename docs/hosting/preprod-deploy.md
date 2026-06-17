@@ -1,9 +1,9 @@
-# Dev deployment pipeline
+# Preprod deployment pipeline
 
-How code reaches the dev environment. The flow, end to end:
+How code reaches the preprod environment. The flow, end to end:
 
 ```
-code → PR (gating CI) → merge 4.x → [auto] deploy app to dev droplet
+code → PR (gating CI) → merge 4.x → [auto] deploy app to preprod droplet
                                           │
                               migrations are SEPARATE + MANUAL
                               (run the "Run DB migrations" workflow by hand)
@@ -29,7 +29,7 @@ terraform output -raw reserved_ip                 # the deploy target (SSH/CI ov
 ```
 The box joins your **tailnet** on boot. farmOS has **no public web port** — the
 cloud firewall allows only `22/tcp` (SSH break-glass + CI deploy) and
-`41641/udp` (Tailscale). Reach farmOS at `http://agriforestryos-dev` (MagicDNS)
+`41641/udp` (Tailscale). Reach farmOS at `http://agriforestryos-preprod` (MagicDNS)
 from any device on the tailnet.
 
 ### 2. Configure GitHub (secrets + the enable gate)
@@ -39,13 +39,13 @@ service-account token. Required:
 
 | GitHub secret | Value |
 |---|---|
-| `DEPLOY_HOST` | `terraform output -raw reserved_ip` |
-| `DEPLOY_SSH_KEY` | the **private** key matching the Terraform `ssh_public_key` |
-| `DEV_ENV_FILE` | full contents of the server `.env` (see `docker/.env.prod.example`) |
+| `PREPROD_HOST` | `terraform output -raw reserved_ip` |
+| `PREPROD_SSH_KEY` | the **private** key matching the Terraform `ssh_public_key` |
+| `PREPROD_ENV_FILE` | full contents of the server `.env` (see `docker/.env.prod.example`) |
 
 Then flip the gate on (workflows are dormant until this is set):
 ```bash
-gh variable set DEPLOY_ENABLED --body true --repo Goldberry-Playground/AgriforestryOS
+gh variable set DEPLOY_PREPROD_ENABLED --body true --repo Goldberry-Playground/AgriforestryOS
 ```
 
 ### 3. First-time farmOS install (manual, once)
@@ -53,7 +53,7 @@ A brand-new droplet has an empty farmOS DB. SSH in and install once:
 ```bash
 ssh deploy@<reserved_ip>
 cd /opt/agriforestryos/repo/docker
-COMPOSE="docker compose --env-file /opt/agriforestryos/.env -f docker-compose.prod.yml"
+COMPOSE="docker compose --env-file /opt/agriforestryos/.env -f docker-compose.server.yml"
 $COMPOSE up -d db postgis www
 $COMPOSE exec www drush site:install farm --db-url=pgsql://$FARMOS_DB_USER:$FARMOS_DB_PASSWORD@db/$FARMOS_DB_NAME -y
 $COMPOSE exec www drush en farm_syntropic -y
@@ -63,16 +63,16 @@ $COMPOSE up -d                       # bring up sync-service + postgis-etl
 
 ## Ongoing
 
-- **Deploy app:** merge a PR to `4.x` → the **Deploy to dev** workflow ships the
+- **Deploy app:** merge a PR to `4.x` → the **Deploy to preprod** workflow ships the
   code and rebuilds the stack (cache rebuild only, no migrations). Or run it
   manually from the Actions tab.
 - **Apply migrations:** when a change adds an update hook (e.g. a new field),
-  run the **Run DB migrations (dev) [manual]** workflow from the Actions tab.
+  run the **Run DB migrations (preprod) [manual]** workflow from the Actions tab.
   It prints `drush updatedb:status` first, then applies. Tick *config_import*
   if the change also alters exported config.
 
 ## Operator access
-- **farmOS** — tailnet only. From a device on the tailnet: `http://agriforestryos-dev`
+- **farmOS** — tailnet only. From a device on the tailnet: `http://agriforestryos-preprod`
   (MagicDNS) or the host's tailnet IP. There is no public web port.
 - **Databases** — DB ports (5432/5433) are never exposed (not in the cloud
   firewall). Reach them over the tailnet, or via an SSH tunnel on the
@@ -85,7 +85,7 @@ $COMPOSE up -d                       # bring up sync-service + postgis-etl
 The MCP server and QGIS are **operator-local tools** — they run next to Claude
 on your machine, not on the server. Only farmOS + the Python services deploy.
 Because farmOS is tailnet-only, the operator machine must be **on the tailnet**;
-point the MCP server's `FARMOS_BASE_URL` at `http://agriforestryos-dev`.
+point the MCP server's `FARMOS_BASE_URL` at `http://agriforestryos-preprod`.
 
 ## Notes / future hardening (Sprint 7: production readiness)
 - ✅ **DB backups + backup-before-migrate** — the `backup` service dumps both
@@ -93,7 +93,7 @@ point the MCP server's `FARMOS_BASE_URL` at `http://agriforestryos-dev`.
   before `drush updb`. See `docs/hosting/backups.md`.
 - ✅ **Pinned production farmOS image** — `docker/farmos.Dockerfile` pins the
   farmOS base by digest and bakes `farm_syntropic` in (no live bind-mount,
-  Xdebug off). `docker-compose.prod.yml` builds it; `up -d --build` ships
+  Xdebug off). `docker-compose.server.yml` builds it; `up -d --build` ships
   committed module changes. Bump the digest deliberately to advance farmOS.
   (Local dev still uses `docker-compose.development.yml` with the bind-mount.)
 - ✅ **Private-mesh access (Tailscale)** instead of public TLS — cloud-init

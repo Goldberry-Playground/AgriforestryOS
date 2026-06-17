@@ -87,7 +87,7 @@ enable `farm_syntropic`, run `drush updb`. Reachable over the tailnet only.
 | Approval | none | **required reviewer** (`prod` Environment) |
 | Backups dir | droplet disk | **block-storage volume** (survives rebuild) |
 | Secrets | repo-level | **environment-scoped** to `prod` |
-| Enable gate | `DEPLOY_ENABLED` | `DEPLOY_PROD_ENABLED` |
+| Enable gate | `DEPLOY_PREPROD_ENABLED` | `DEPLOY_PROD_ENABLED` |
 
 Access (tailnet-only farmOS), the manual-migration principle, and the
 backup-before-migrate snapshot are identical to dev.
