@@ -15,7 +15,7 @@ variable "region" {
 }
 
 variable "droplet_size" {
-  description = "Droplet size slug. Default 4GB/2vCPU — enough for farmOS + Postgres + PostGIS + the two Python services for dev."
+  description = "Droplet size slug. Default 4GB/2vCPU — enough for farmOS + Postgres + PostGIS + the Python services on a single tier."
   type        = string
   default     = "s-2vcpu-4gb"
 }

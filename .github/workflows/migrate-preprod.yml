@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-preprod          # never overlap with an app deploy
+  group: deploy-preprod      # never overlap with an app deploy
   cancel-in-progress: false
 
 jobs:
