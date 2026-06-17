@@ -54,6 +54,9 @@ Then flip the gate on (workflows are dormant until this is set):
 ```bash
 gh variable set DEPLOY_PREPROD_ENABLED --body true --repo Goldberry-Playground/AgriforestryOS
 ```
+> ⚠️ **Do this AFTER the one-time install in §3.** The deploy's post-deploy
+> verify curls farmOS for HTTP 200; on an un-installed site that fails. Arm the
+> gate only once §3 has farmOS responding, so the first auto-deploy goes green.
 
 ### 3. First-time farmOS install (manual, once)
 A brand-new droplet has an empty farmOS DB. SSH in and install once:

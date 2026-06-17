@@ -12,7 +12,7 @@
 # (or query the registry manifest for `farmos/farmos:4.x-dev`).
 #
 # Digest below resolved on 2026-06-16. Build context must be the REPO ROOT so
-# the COPY can see modules/ (see docker-compose.prod.yml: context `..`).
+# the COPY can see modules/ (see docker-compose.server.yml: context `..`).
 ARG FARMOS_DIGEST=sha256:5d8f5cc4183465a80037b45eae58bdd420fc4757ac9918bb6c7bcdf825c8731d
 FROM farmos/farmos@${FARMOS_DIGEST}
 
