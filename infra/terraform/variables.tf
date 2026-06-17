@@ -1,11 +1,11 @@
-# Inputs for the AgriforestryOS dev environment.
+# Inputs for the AgriforestryOS deploy tiers (preprod by default; prod via workspace).
 # Copy terraform.tfvars.example → terraform.tfvars and adjust. No secrets here:
 # the DO API token comes from DIGITALOCEAN_TOKEN; only your SSH *public* key.
 
 variable "environment" {
-  description = "Environment name (used in resource names + tags)."
+  description = "Environment name (used in resource names + tags). Default tier is preprod; prod uses a separate workspace with -var environment=prod."
   type        = string
-  default     = "dev"
+  default     = "preprod"
 }
 
 variable "region" {

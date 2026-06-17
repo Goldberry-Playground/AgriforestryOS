@@ -1,6 +1,6 @@
-# AgriforestryOS dev environment: a Docker-host droplet with a stable reserved
-# IP and a locked-down firewall. Terraform owns the *infrastructure*; GitHub
-# Actions deploys the *application* onto it (SSH → pull → compose up → drush updb).
+# AgriforestryOS deploy tier (preprod by default; prod via workspace): a Docker-host
+# droplet with a stable reserved IP and a locked-down firewall. Terraform owns the
+# *infrastructure*; GitHub Actions deploys the *application* onto it (SSH → pull → compose up → drush updb).
 
 locals {
   name        = "agriforestryos-${var.environment}"

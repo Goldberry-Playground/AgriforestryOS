@@ -1,6 +1,6 @@
-# AgriforestryOS — Dev infrastructure (Terraform)
+# AgriforestryOS — Deploy-tier infrastructure (Terraform)
 
-Provisions the **dev environment** for AgriforestryOS on DigitalOcean: a
+Provisions the **preprod environment** (and prod via workspace) for AgriforestryOS on DigitalOcean: a
 Docker-host droplet with a stable reserved IP and a locked-down firewall.
 
 **Split of responsibility:**
@@ -15,7 +15,7 @@ Terraform's `reserved_ip` output is the deploy **target** the workflow points at
 
 | Resource | Purpose |
 |---|---|
-| `digitalocean_droplet` | Ubuntu 24.04 Docker host (default 4GB/2vCPU). cloud-init installs Docker, creates a `deploy` user, clones the repo, **joins the tailnet**, sets `ufw`. |
+| `digitalocean_droplet` | Ubuntu 24.04 Docker host (default 4GB/2vCPU). cloud-init installs Docker, creates a `deploy` user, clones the repo, **joins the tailnet**, sets `ufw`. Default name: `agriforestryos-preprod`. |
 | `digitalocean_reserved_ip` | Stable IP that survives droplet rebuilds — the SSH/CI deploy target. |
 | `digitalocean_firewall` | **Private-mesh only:** inbound `22/tcp` (SSH break-glass + CI) + `41641/udp` (Tailscale). **No public 80/443** — farmOS is reachable only over the tailnet. Postgres/PostGIS (5432/5433) never exposed. This cloud firewall is the real control (it isn't bypassed by Docker's published ports, unlike `ufw`). |
 | `digitalocean_ssh_key` | Registers your public key for droplet access. |
@@ -57,12 +57,12 @@ the droplet:
 
 | Secret | Value |
 |---|---|
-| `DEPLOY_HOST` | `terraform output -raw reserved_ip` |
-| `DEPLOY_SSH_KEY` | the **private** key matching `ssh_public_key` |
+| `PREPROD_HOST` | `terraform output -raw reserved_ip` |
+| `PREPROD_SSH_KEY` | the **private** key matching `ssh_public_key` |
 
 (Doctl note: `doctl` isn't required for provisioning — Terraform talks to the
 DO API directly. It's handy for ad-hoc ops: `doctl compute droplet list`,
-`doctl compute ssh agriforestryos-dev`.)
+`doctl compute ssh agriforestryos-preprod`.)
 
 ## Tear down
 
