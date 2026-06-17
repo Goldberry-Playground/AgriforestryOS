@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- AgriforestryOS fork: post-review doc/comment cleanups for the preprod→prod pipeline — corrected a stale `docker-compose.prod.yml` reference in `docker/farmos.Dockerfile`, relabeled the "dev → prod" comparison in `docs/hosting/prod-deploy.md` to "preprod → prod", and added an ordering caution to `preprod-deploy.md` (arm `DEPLOY_PREPROD_ENABLED` only after the one-time farmOS install, so the first auto-deploy's health verify passes).
+
 ### Added
 
 - AgriforestryOS fork: Tailscale HTTPS ingress + post-deploy verify — farmOS is published only on `127.0.0.1:80` and exposed on the tailnet over HTTPS via `tailscale serve` (real cert at `https://agriforestryos-<tier>.<tailnet>.ts.net`; needs MagicDNS+HTTPS enabled). `www`/`db` get container healthchecks, and both deploy workflows now **fail if farmOS isn't healthy** after `up -d --build`. Adds a pre-promotion review checklist to the preprod runbook.

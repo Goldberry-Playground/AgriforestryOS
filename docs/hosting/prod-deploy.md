@@ -82,9 +82,9 @@ requires MagicDNS + HTTPS certificates enabled in the Tailscale admin console be
   approval, takes a `premigrate` snapshot, prints `updatedb:status`, then
   `drush updb`. Tick *config_import* if exported config changed.
 
-## What makes prod different from dev (summary)
+## What makes prod different from preprod (summary)
 
-| | dev | prod |
+| | preprod | prod |
 |---|---|---|
 | Trigger | auto on merge to `4.x` | `v*` tag / manual dispatch |
 | Approval | none | **required reviewer** (`prod` Environment) |
@@ -93,4 +93,4 @@ requires MagicDNS + HTTPS certificates enabled in the Tailscale admin console be
 | Enable gate | `DEPLOY_PREPROD_ENABLED` | `DEPLOY_PROD_ENABLED` |
 
 Access (tailnet-only farmOS), the manual-migration principle, and the
-backup-before-migrate snapshot are identical to dev.
+backup-before-migrate snapshot are identical to preprod.
