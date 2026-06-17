@@ -1,12 +1,12 @@
-name: Run DB migrations (dev) [manual]
+name: Run DB migrations (preprod) [manual]
 
-# Deliberate, human-triggered farmOS migrations on the dev droplet — NOT part
+# Deliberate, human-triggered farmOS migrations on the preprod droplet — NOT part
 # of auto-deploy. This is the "migrations are manual" decision: drush updb runs
 # the update hooks (e.g. farm_syntropic_update_8002) only when a human clicks
 # Run workflow, after reviewing what's pending.
 #
-# Manual only (workflow_dispatch). Same secrets as deploy-dev.yml.
-# Activate the same way: gh variable set DEPLOY_ENABLED --body true
+# Manual only (workflow_dispatch). Same secrets as deploy-preprod.yml.
+# Activate the same way: gh variable set DEPLOY_PREPROD_ENABLED --body true
 
 on:
   workflow_dispatch:
@@ -20,19 +20,19 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-dev          # never overlap with an app deploy
+  group: deploy-preprod          # never overlap with an app deploy
   cancel-in-progress: false
 
 jobs:
   migrate:
-    name: drush updb on dev droplet
+    name: drush updb on preprod droplet
     runs-on: ubuntu-latest
-    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
+    if: ${{ vars.DEPLOY_PREPROD_ENABLED == 'true' }}
     timeout-minutes: 15
     steps:
       - name: Write SSH key
         env:
-          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_KEY: ${{ secrets.PREPROD_SSH_KEY }}
         run: |
           mkdir -p ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
@@ -40,14 +40,14 @@ jobs:
 
       - name: Show pending updates, then migrate
         env:
-          HOST: ${{ secrets.DEPLOY_HOST }}
+          HOST: ${{ secrets.PREPROD_HOST }}
           DO_CIM: ${{ inputs.config_import }}
         run: |
           SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new"
           $SSH "deploy@${HOST}" "DO_CIM=${DO_CIM}" bash -s <<'REMOTE'
             set -euo pipefail
             cd /opt/agriforestryos/repo/docker
-            COMPOSE="docker compose --env-file /opt/agriforestryos/.env -f docker-compose.prod.yml"
+            COMPOSE="docker compose --env-file /opt/agriforestryos/.env -f docker-compose.server.yml"
             echo "== Pending updates =="
             $COMPOSE exec -T www drush updatedb:status || true
             echo "== Pre-migrate snapshot (backup before updb) =="
