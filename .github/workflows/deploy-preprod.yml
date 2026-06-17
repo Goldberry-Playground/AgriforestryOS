@@ -1,18 +1,18 @@
-name: Deploy to dev
+name: Deploy to preprod
 
-# Auto-deploys the app to the Terraform-provisioned dev droplet on every merge
+# Auto-deploys the app to the Terraform-provisioned preprod droplet on every merge
 # to 4.x. Deploys CODE only — `drush updb` (DB migrations) is a deliberate
-# MANUAL step (see migrate-dev.yml), per the "migrations are manual" decision.
+# MANUAL step (see migrate-preprod.yml), per the "migrations are manual" decision.
 #
 # Dormant until configured: the job is skipped unless the repo variable
-# DEPLOY_ENABLED == 'true', so merging this workflow doesn't cause failing runs
+# DEPLOY_PREPROD_ENABLED == 'true', so merging this workflow doesn't cause failing runs
 # before the droplet exists. (Secrets can't be read in job-level `if:`; a repo
 # *variable* can — hence the vars gate.) To activate:
-#   gh variable set DEPLOY_ENABLED --body true
+#   gh variable set DEPLOY_PREPROD_ENABLED --body true
 # Required secrets once the box is up:
-#   DEPLOY_HOST     — reserved IP from `terraform output -raw reserved_ip`
-#   DEPLOY_SSH_KEY  — private key matching infra ssh_public_key
-#   DEV_ENV_FILE    — full .env contents (1Password → GitHub secret)
+#   PREPROD_HOST     — reserved IP from `terraform output -raw reserved_ip`
+#   PREPROD_SSH_KEY  — private key matching infra ssh_public_key
+#   PREPROD_ENV_FILE — full .env contents (1Password → GitHub secret)
 
 on:
   push:
@@ -21,28 +21,29 @@ on:
       - 'modules/**'
       - 'sync-service/**'
       - 'postgis-etl/**'
-      - 'docker/docker-compose.prod.yml'
-      - '.github/workflows/deploy-dev.yml'
+      - 'backup-service/**'
+      - 'docker/docker-compose.server.yml'
+      - '.github/workflows/deploy-preprod.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: deploy-dev
+  group: deploy-preprod
   cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Deploy app to dev droplet
+    name: Deploy app to preprod droplet
     runs-on: ubuntu-latest
-    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
+    if: ${{ vars.DEPLOY_PREPROD_ENABLED == 'true' }}
     timeout-minutes: 15
     steps:
       - name: Write SSH key + env file
         env:
-          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          ENV_FILE: ${{ secrets.DEV_ENV_FILE }}
+          SSH_KEY: ${{ secrets.PREPROD_SSH_KEY }}
+          ENV_FILE: ${{ secrets.PREPROD_ENV_FILE }}
         run: |
           mkdir -p ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
@@ -51,7 +52,7 @@ jobs:
 
       - name: Ship env + deploy stack
         env:
-          HOST: ${{ secrets.DEPLOY_HOST }}
+          HOST: ${{ secrets.PREPROD_HOST }}
         run: |
           SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new"
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
@@ -65,9 +66,9 @@ jobs:
             git reset --hard origin/4.x
             cd docker
             docker compose --env-file /opt/agriforestryos/.env \
-              -f docker-compose.prod.yml up -d --build
+              -f docker-compose.server.yml up -d --build
             # Cache rebuild is safe and idempotent. DB migrations (drush updb)
-            # are intentionally NOT run here — trigger migrate-dev.yml manually.
+            # are intentionally NOT run here — trigger migrate-preprod.yml manually.
             docker compose --env-file /opt/agriforestryos/.env \
-              -f docker-compose.prod.yml exec -T www drush cr || true
+              -f docker-compose.server.yml exec -T www drush cr || true
           REMOTE
