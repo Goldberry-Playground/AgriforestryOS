@@ -53,6 +53,9 @@ runcmd:
   # Expose farmOS (loopback:80) on the tailnet over HTTPS with a real
   # Tailscale-issued cert. Requires MagicDNS + HTTPS enabled in the tailnet
   # admin (operator one-time step). https://<hostname>.<tailnet>.ts.net
+  # Wait for the daemon to reach Running first so `serve` doesn't race auth
+  # on a fresh boot (bounded ~60s; serve config is idempotent regardless).
+  - for i in $(seq 1 30); do tailscale status >/dev/null 2>&1 && break; sleep 2; done
   - tailscale serve --bg 80
   # ufw is defense-in-depth only. NOTE: Docker's published ports bypass ufw, so
   # ufw is NOT what protects farmOS from the internet — the DigitalOcean cloud

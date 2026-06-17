@@ -93,7 +93,7 @@ $COMPOSE up -d                       # bring up sync-service + postgis-etl
 The MCP server and QGIS are **operator-local tools** — they run next to Claude
 on your machine, not on the server. Only farmOS + the Python services deploy.
 Because farmOS is tailnet-only, the operator machine must be **on the tailnet**;
-point the MCP server's `FARMOS_BASE_URL` at `http://agriforestryos-preprod`.
+point the MCP server's `FARMOS_BASE_URL` at `https://agriforestryos-preprod.<your-tailnet>.ts.net`.
 
 ## Pre-promotion review checklist
 
