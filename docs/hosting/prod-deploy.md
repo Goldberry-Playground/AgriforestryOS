@@ -68,7 +68,7 @@ gh variable set DEPLOY_PROD_ENABLED --body true --repo Goldberry-Playground/Agri
 ```
 
 ### 4. First-time farmOS install (manual, once)
-Same as dev (see `dev-deploy.md` §3) but against the prod host — install farmOS,
+Same as preprod (see `preprod-deploy.md` §3) but against the prod host — install farmOS,
 enable `farm_syntropic`, run `drush updb`. Reachable over the tailnet only.
 
 ## Ongoing

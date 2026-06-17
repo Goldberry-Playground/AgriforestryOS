@@ -6,7 +6,7 @@ reproducible from farmOS via the ETL, but it's cheap to back up too.
 
 ## What runs
 
-The `backup` service (`backup-service/`, in `docker-compose.prod.yml`) takes
+The `backup` service (`backup-service/`, in `docker-compose.server.yml`) takes
 `pg_dump -Fc` snapshots of both databases on a daily loop and writes them to
 **two** places:
 
@@ -36,7 +36,7 @@ Restoring overwrites the target DB's objects, so it's never automatic.
 ```bash
 ssh deploy@<host>
 cd /opt/agriforestryos/repo/docker
-COMPOSE="docker compose --env-file /opt/agriforestryos/.env -f docker-compose.prod.yml"
+COMPOSE="docker compose --env-file /opt/agriforestryos/.env -f docker-compose.server.yml"
 
 # See what's available (local + Spaces):
 $COMPOSE run --rm --no-deps backup --once --reason manual   # optional: take one now

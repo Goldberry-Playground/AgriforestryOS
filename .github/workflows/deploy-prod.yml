@@ -71,8 +71,8 @@ jobs:
             git checkout --force "${DEPLOY_REF}"
             cd docker
             docker compose --env-file /opt/agriforestryos/.env \
-              -f docker-compose.prod.yml up -d --build
+              -f docker-compose.server.yml up -d --build
             # DB migrations (drush updb) are NOT run here — see migrate-prod.yml.
             docker compose --env-file /opt/agriforestryos/.env \
-              -f docker-compose.prod.yml exec -T www drush cr || true
+              -f docker-compose.server.yml exec -T www drush cr || true
           REMOTE

@@ -1,18 +1,18 @@
 ##
-# AgriforestryOS server stack (dev environment on the Terraform-provisioned
-# droplet). ONE deploy unit: farmOS + Postgres + PostGIS + the two Python
-# sync/ETL services. The MCP server and QGIS are operator-local tools and are
-# intentionally NOT here.
+# AgriforestryOS server stack — the ONE deploy unit shared by the preprod and
+# prod tiers (selected by the per-tier .env, not the compose file). farmOS +
+# Postgres + PostGIS + the Python sync/ETL/backup services. The MCP server and
+# QGIS are operator-local tools and are intentionally NOT here.
 #
 # Config comes entirely from /opt/agriforestryos/.env (written at deploy time
 # from GitHub/1Password secrets) — no secrets in this file.
 #
 # Usage on the host (the deploy workflow runs this):
 #   docker compose --env-file /opt/agriforestryos/.env \
-#     -f docker/docker-compose.prod.yml up -d --build
+#     -f docker/docker-compose.server.yml up -d --build
 #
 # Migrations (drush updb) and the one-time farmOS install are MANUAL — see
-# docs/hosting/dev-deploy.md. This stack never runs updb automatically.
+# docs/hosting/preprod-deploy.md. This stack never runs updb automatically.
 ##
 services:
   db:

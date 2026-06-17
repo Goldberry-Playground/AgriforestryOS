@@ -48,7 +48,7 @@ jobs:
           $SSH "deploy@${HOST}" "DO_CIM=${DO_CIM}" bash -s <<'REMOTE'
             set -euo pipefail
             cd /opt/agriforestryos/repo/docker
-            COMPOSE="docker compose --env-file /opt/agriforestryos/.env -f docker-compose.prod.yml"
+            COMPOSE="docker compose --env-file /opt/agriforestryos/.env -f docker-compose.server.yml"
             echo "== Pending updates =="
             $COMPOSE exec -T www drush updatedb:status || true
             echo "== Pre-migrate snapshot (backup before updb) =="
