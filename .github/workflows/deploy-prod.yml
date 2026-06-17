@@ -70,9 +70,18 @@ jobs:
             git fetch --all --tags --quiet
             git checkout --force "${DEPLOY_REF}"
             cd docker
-            docker compose --env-file /opt/agriforestryos/.env \
-              -f docker-compose.server.yml up -d --build
+            COMPOSE="docker compose --env-file /opt/agriforestryos/.env -f docker-compose.server.yml"
+            $COMPOSE up -d --build
             # DB migrations (drush updb) are NOT run here — see migrate-prod.yml.
-            docker compose --env-file /opt/agriforestryos/.env \
-              -f docker-compose.server.yml exec -T www drush cr || true
+            $COMPOSE exec -T www drush cr || true
+            echo "== Post-deploy verify =="
+            # Wait up to ~2min for www to report healthy, then confirm HTTP 200.
+            for i in $(seq 1 24); do
+              status=$($COMPOSE ps --format '{{.Service}} {{.Health}}' | awk '$1=="www"{print $2}')
+              [ "$status" = "healthy" ] && break
+              sleep 5
+            done
+            [ "$status" = "healthy" ] || { echo "farmOS www not healthy: $status"; $COMPOSE ps; exit 1; }
+            $COMPOSE exec -T www curl -fsS http://localhost/user/login >/dev/null \
+              && echo "verify OK: farmOS responds 200" || { echo "farmOS HTTP check failed"; exit 1; }
           REMOTE

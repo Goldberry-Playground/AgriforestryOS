@@ -69,7 +69,10 @@ gh variable set DEPLOY_PROD_ENABLED --body true --repo Goldberry-Playground/Agri
 
 ### 4. First-time farmOS install (manual, once)
 Same as preprod (see `preprod-deploy.md` §3) but against the prod host — install farmOS,
-enable `farm_syntropic`, run `drush updb`. Reachable over the tailnet only.
+enable `farm_syntropic`, run `drush updb`. Reachable over the tailnet only at
+`https://agriforestryos-prod.<your-tailnet>.ts.net` (real TLS via `tailscale serve`;
+requires MagicDNS + HTTPS certificates enabled in the Tailscale admin console before
+`terraform apply` — same prerequisite as preprod).
 
 ## Ongoing
 

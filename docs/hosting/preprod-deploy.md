@@ -19,6 +19,11 @@ Two principles, both deliberate:
 ## One-time setup
 
 ### 1. Provision the droplet
+
+**Before running `terraform apply`:** Enable **MagicDNS** and **HTTPS certificates**
+in the Tailscale admin console (Settings → DNS) — `tailscale serve` needs them to
+issue the cert.
+
 ```bash
 cd infra/terraform
 export DIGITALOCEAN_TOKEN=dop_v1_...
@@ -27,9 +32,11 @@ cp terraform.tfvars.example terraform.tfvars      # paste your SSH public key
 terraform init && terraform apply
 terraform output -raw reserved_ip                 # the deploy target (SSH/CI over public :22)
 ```
-The box joins your **tailnet** on boot. farmOS has **no public web port** — the
-cloud firewall allows only `22/tcp` (SSH break-glass + CI deploy) and
-`41641/udp` (Tailscale). Reach farmOS at `http://agriforestryos-preprod` (MagicDNS)
+The box joins your **tailnet** on boot and runs `tailscale serve` to proxy the
+tailnet HTTPS :443 to farmOS on loopback :80. farmOS has **no public web port** —
+the cloud firewall allows only `22/tcp` (SSH break-glass + CI deploy) and
+`41641/udp` (Tailscale). Reach farmOS at
+`https://agriforestryos-preprod.<your-tailnet>.ts.net` (real TLS via `tailscale serve`)
 from any device on the tailnet.
 
 ### 2. Configure GitHub (secrets + the enable gate)
@@ -72,8 +79,9 @@ $COMPOSE up -d                       # bring up sync-service + postgis-etl
   if the change also alters exported config.
 
 ## Operator access
-- **farmOS** — tailnet only. From a device on the tailnet: `http://agriforestryos-preprod`
-  (MagicDNS) or the host's tailnet IP. There is no public web port.
+- **farmOS** — tailnet only. From a device on the tailnet:
+  `https://agriforestryos-preprod.<your-tailnet>.ts.net` (real TLS via `tailscale serve`).
+  There is no public web port.
 - **Databases** — DB ports (5432/5433) are never exposed (not in the cloud
   firewall). Reach them over the tailnet, or via an SSH tunnel on the
   break-glass port:
@@ -85,7 +93,17 @@ $COMPOSE up -d                       # bring up sync-service + postgis-etl
 The MCP server and QGIS are **operator-local tools** — they run next to Claude
 on your machine, not on the server. Only farmOS + the Python services deploy.
 Because farmOS is tailnet-only, the operator machine must be **on the tailnet**;
-point the MCP server's `FARMOS_BASE_URL` at `http://agriforestryos-preprod`.
+point the MCP server's `FARMOS_BASE_URL` at `https://agriforestryos-preprod.<your-tailnet>.ts.net`.
+
+## Pre-promotion review checklist
+
+Before tagging a release for prod, on preprod:
+- [ ] The Deploy to preprod run is green (post-deploy verify passed).
+- [ ] `https://agriforestryos-preprod.<tailnet>.ts.net` loads with a valid cert.
+- [ ] Spot-check the change you're shipping (the feature / fixed bug).
+- [ ] If the release adds an update hook, you've run **Run DB migrations (preprod)**
+      and it succeeded (snapshot-first).
+- [ ] Then: tag `vX.Y.Z` (or dispatch Deploy to prod) → approve the gated run.
 
 ## Notes / future hardening (Sprint 7: production readiness)
 - ✅ **DB backups + backup-before-migrate** — the `backup` service dumps both
