@@ -15,6 +15,15 @@ on:
     branches: [4.x, 'feature/**']
   push:
     branches: [4.x]
+  # The default branch (4.x) is gated by an active merge-queue ruleset, so PRs
+  # merge through the queue. Every required status check MUST also report on the
+  # merge_group event, or each queue entry sits at "Expected — waiting for
+  # status" until check_response_timeout_minutes (30) expires and then fails —
+  # a queue that can never go green. These four jobs are the required contexts
+  # (Workflow lint / PHP syntax / YAML lint / Secret scan), so they run here too.
+  # (GOL-1735 / GOL-1406-D — all-required-checks-on-merge_group.)
+  merge_group:
+    branches: [4.x]
 
 permissions:
   contents: read
