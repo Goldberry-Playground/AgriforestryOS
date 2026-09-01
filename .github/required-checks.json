@@ -6,6 +6,7 @@
     "Workflow lint (actionlint)",
     "PHP syntax check",
     "YAML lint (config + workflows)",
-    "Secret scan (gitleaks)"
+    "Secret scan (gitleaks)",
+    "Required-checks audit"
   ]
 }
