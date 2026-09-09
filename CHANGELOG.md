@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- AgriforestryOS fork: deleted the dead `.github/workflows/deliver.yml` — a fork-inherited upstream release workflow that was already disabled and can never run here (wrong repo context); removing it de-noises the Actions tab and the required-checks audit.
+
 ### Fixed
 
 - AgriforestryOS fork: post-review doc/comment cleanups for the preprod→prod pipeline — corrected a stale `docker-compose.prod.yml` reference in `docker/farmos.Dockerfile`, relabeled the "dev → prod" comparison in `docs/hosting/prod-deploy.md` to "preprod → prod", and added an ordering caution to `preprod-deploy.md` (arm `DEPLOY_PREPROD_ENABLED` only after the one-time farmOS install, so the first auto-deploy's health verify passes).
