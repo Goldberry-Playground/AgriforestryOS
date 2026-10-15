@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- AgriforestryOS fork: README records the GOL-2016 review/merge policy — this repo is deliberately **out of the agent pipeline** (no github-sync bridge, no `agent-review/*`, none of the six agent-ops workflows; Josh reviews and merges by hand). `required-checks-audit.yml` is kept. Mirrors the `agent_ops: "out-of-scope"` marker on the AgriforestryOS entry in AgenticOS `.github/merge-policy.json`. Reversible if `4.x` development resumes.
+
 ### Removed
 
 - AgriforestryOS fork: deleted the dead `.github/workflows/deliver.yml` — a fork-inherited upstream release workflow that was already disabled and can never run here (wrong repo context); removing it de-noises the Actions tab and the required-checks audit.

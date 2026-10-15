@@ -323,6 +323,21 @@ gh pr create --repo Goldberry-Playground/AgriforestryOS --title "..." --body "..
 
 ---
 
+## Review & Merge Policy — out of the agent pipeline (GOL-2016)
+
+**Decision (CEO, 2026-10-14): this repo is deliberately *not* wired into the Goldberry-Playground agent pipeline.** Josh reviews and merges every PR here by hand. This is a recorded, reversible choice — not an oversight — so a CI sweep must not "fix" it.
+
+What that means in practice:
+
+- There is **no github-sync bridge** for this repo, so no review issue is seeded on the board and the `agent-review/*` check-run never appears on a PR. Do not wait for it.
+- None of the six agent-ops workflows are present, on purpose: `auto-approve.yml`, `ci-autofix.yml`, `ci-failure-router.yml`, `config-freeze.yml`, `fix-touches-test.yml`, `protected-paths-guard.yml`. **Do not port them here.**
+- `required-checks-audit.yml` *is* kept: it is self-contained and audits this repo's own required checks against `.github/required-checks.json`, which stays in lockstep with the `AgriforestryOS` entry in AgenticOS `.github/merge-policy.json` (marked `agent_ops: "out-of-scope"` there).
+- Why: this is a dormant `4.x` product (last non-CI commit 2026-06-17). The agent pipeline exists to reduce Josh's review load; adding a bridge, six workflows and a standing reviewer for a repo nobody is developing would do the opposite.
+
+To reverse it when `4.x` development resumes: register a github-sync bridge first (board/plugin config), then port the six workflows in their *current* shape (event-driven auto-approve with the maintainer path; `merge_group`-enforcing protected-paths guard), then remove the `agent_ops` marker from merge-policy.json and this section.
+
+---
+
 ## Licence
 
 GPL 2.0 — see [LICENSE.txt](LICENSE.txt). farmOS is developed by a community of volunteers; this fork builds on their work without intending to compete with or fragment the upstream project.
