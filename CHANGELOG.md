@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- AgriforestryOS fork: required-checks audit, needs-closure port (GOL-3360) — `.github/scripts/audit-required-merge-group.py` is synced to the AgenticOS copy and now asserts that every job in the transitive `needs:` of a required job is itself required (a red non-required upstream SKIPS the dependent, and a skipped check satisfies branch protection, so the gate would see neither failure). Also flags a required job that an `if: github.event_name == ...` gate skips on `merge_group`. New `audit-required-merge-group.test.py` (10 cases, PyYAML only) runs ahead of the static audit in `required-checks-audit.yml`. No live protection change.
+
 ### Removed
 
 - AgriforestryOS fork: deleted the dead `.github/workflows/deliver.yml` — a fork-inherited upstream release workflow that was already disabled and can never run here (wrong repo context); removing it de-noises the Actions tab and the required-checks audit.
