@@ -23,6 +23,36 @@ def test_tenure_permanent_when_no_nursery_categories_configured():
     assert determine_tenure("Anything", set()) == "permanent"
 
 
+def test_tenure_client_when_location_has_prefix():
+    # A move into a "Client:*" stock location is a consulting-client planting.
+    assert determine_tenure(
+        "Plants / Trees", {"Plants / Nursery Stock"},
+        location_name="Client: Smith Homestead",
+    ) == "client"
+
+
+def test_tenure_client_beats_nursery_category():
+    # Location prefix is the strongest signal, even if the category also matches.
+    assert determine_tenure(
+        "Plants / Nursery Stock", {"Plants / Nursery Stock"},
+        location_name="Client: Jones Farm",
+    ) == "client"
+
+
+def test_tenure_custom_client_prefix():
+    assert determine_tenure(
+        None, set(), location_name="CONSULT/Acme", client_location_prefix="CONSULT/",
+    ) == "client"
+
+
+def test_tenure_non_client_location_falls_through():
+    assert determine_tenure(
+        "Plants / Nursery Stock", {"Plants / Nursery Stock"},
+        location_name="Orchard",
+    ) == "nursery_stock"
+    assert determine_tenure(None, set(), location_name="Orchard") == "permanent"
+
+
 # ---------------------------------------------------------------------------
 # build_tree_attributes
 # ---------------------------------------------------------------------------
