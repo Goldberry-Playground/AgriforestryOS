@@ -164,3 +164,68 @@ function farm_syntropic_update_8002(): string {
     ? 'Installed missing field storage for: ' . implode(', ', $installed) . '.'
     : 'Tree field storage already present; nothing to do.';
 }
+
+/**
+ * Add the Fungal term to the syntropic_stratum vocabulary on existing sites.
+ *
+ * Fungal is the mushroom layer (spawn and logs). Fresh installs get it from
+ * farm_syntropic_install(); this hook seeds it on sites installed before the
+ * consult work. Idempotent — the shared helper is a no-op if a term named
+ * "Fungal" already exists (e.g. auto-created earlier), so re-runs and sites
+ * that already have it are safe. Existing terms and tree rows are untouched.
+ */
+function farm_syntropic_update_8003(): string {
+  // The helper lives in the .module file, loaded by the update runner.
+  $tid = _farm_syntropic_ensure_stratum_term('Fungal', 10);
+  return "Fungal stratum term is present (term $tid).";
+}
+
+/**
+ * Extend the Tree `tenure` allowed values with `client`.
+ *
+ * The consult dashboard keeps consulting clients' trees in this one farmOS
+ * instance, tagged tenure `client`. The plugin definition already carries
+ * the new value for fresh installs (Tree::tenureFieldAllowedValues()); this
+ * hook syncs the LAST-INSTALLED field storage definition on existing sites
+ * so validation and JSON:API accept `client`.
+ *
+ * `tenure` is a list_string: the allowed-values list is a storage SETTING,
+ * not a schema change, so updating the stored definition touches no column
+ * and leaves every existing row's value untouched. Idempotent: if the value
+ * is already allowed the definition is saved unchanged.
+ */
+function farm_syntropic_update_8004(): string {
+  $update_manager = \Drupal::entityDefinitionUpdateManager();
+  $field_manager = \Drupal::service('entity_field.manager');
+  $field_manager->clearCachedFieldDefinitions();
+
+  // The authoritative current definition from the Tree plugin (code).
+  $definitions = $field_manager->getFieldDefinitions('asset', 'tree');
+  if (!isset($definitions['tenure'])) {
+    return 'Tree tenure field not found; nothing to do.';
+  }
+  $current = $definitions['tenure']->getFieldStorageDefinition();
+
+  // The definition the site last installed (what validation reads from).
+  $installed = $update_manager->getFieldStorageDefinition('tenure', 'asset');
+  if (!$installed) {
+    // No stored definition yet (very old/odd state) — install the current one.
+    $update_manager->installFieldStorageDefinition(
+      'tenure',
+      'asset',
+      'farm_syntropic',
+      $current,
+    );
+    return 'Installed tenure field storage with the client value.';
+  }
+
+  $allowed = $current->getSetting('allowed_values') ?? [];
+  if (array_key_exists('client', $allowed)) {
+    // Push the current (client-inclusive) settings onto the stored def.
+    $installed->setSetting('allowed_values', $allowed);
+    $update_manager->updateFieldStorageDefinition($installed);
+    return 'Tree tenure now allows: ' . implode(', ', array_keys($allowed)) . '.';
+  }
+
+  return 'Tree tenure allowed values unchanged (client not in definition).';
+}

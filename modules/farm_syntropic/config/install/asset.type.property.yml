@@ -1,0 +1,11 @@
+uuid: 7300e7e5-ff52-405a-97fb-790a66888932
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - farm_syntropic
+id: property
+label: Property
+description: "A consulting client's parcel (the land we design for). Carries the client name, the Odoo opportunity and stock location, and an active/archived status. Consult areas reference a property."
+new_revision: true
