@@ -9,3 +9,55 @@
  * config entities in config/install/. This file is intentionally minimal —
  * add hook_* implementations here when needed.
  */
+
+declare(strict_types=1);
+
+use Drupal\taxonomy\Entity\Term;
+
+/**
+ * Implements hook_install().
+ *
+ * Taxonomy terms are content, not config, so they cannot ship in
+ * config/install. Seed the Fungal stratum term here so a fresh install has
+ * it first-class (the mushroom layer: spawn and logs). Existing sites get it
+ * from farm_syntropic_update_8003() instead. Both call the same idempotent
+ * helper.
+ */
+function farm_syntropic_install(): void {
+  _farm_syntropic_ensure_stratum_term('Fungal', 10);
+}
+
+/**
+ * Ensure a syntropic_stratum term with the given name exists.
+ *
+ * Idempotent: if a term with this name already exists in the vocabulary it
+ * is left untouched and its id returned. Used by both hook_install() and the
+ * update hook so fresh installs and existing sites converge on the same
+ * vocabulary.
+ *
+ * @param string $name
+ *   The term name (e.g. "Fungal").
+ * @param int $weight
+ *   Term weight; higher sorts later. Fungal uses a high weight so it lands
+ *   after the auto-created canopy strata (weight 0), i.e. "after Root/Tuber".
+ *
+ * @return int
+ *   The term id.
+ */
+function _farm_syntropic_ensure_stratum_term(string $name, int $weight = 0): int {
+  $storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
+  $existing = $storage->loadByProperties([
+    'vid' => 'syntropic_stratum',
+    'name' => $name,
+  ]);
+  if ($existing) {
+    return (int) reset($existing)->id();
+  }
+  $term = Term::create([
+    'vid' => 'syntropic_stratum',
+    'name' => $name,
+    'weight' => $weight,
+  ]);
+  $term->save();
+  return (int) $term->id();
+}

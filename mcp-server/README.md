@@ -56,6 +56,16 @@ uv run --project mcp-server --env-file mcp-server/.env agriforestryos-mcp
 
 ## Tool reference
 
+> **Tenure and home-farm scoping.** Every Tree carries a `tenure`:
+> `permanent` (our orchard), `nursery_stock` (alley stock for sale) or
+> `client` (trees on a consulting client's land, tracked in the one shared
+> farmOS instance). `count_trees`, `query_trees`, `list_harvests` and
+> `harvest_summary` all take an optional `tenure` filter and **exclude
+> `client` by default**, so home-farm numbers stay home-farm numbers. Pass
+> `tenure="client"` (or `permanent` / `nursery_stock`) to scope to exactly
+> one. Trees with no tenure set (hand-entered) are treated as home-farm and
+> kept by default.
+
 ### `list_asset_types`
 
 Lists all registered asset bundle types in the farmOS instance.
@@ -68,7 +78,7 @@ Lists all registered asset bundle types in the farmOS instance.
 
 Counts Tree assets matching optional filters.
 
-- **Parameters:** `species`, `stratum`, `planting_year` (all optional)
+- **Parameters:** `species`, `stratum`, `planting_year`, `tenure` (all optional; omit `tenure` to count home-farm trees only)
 - **Returns:** `{"count": 42, "filters_applied": {"species": "American Chestnut"}}`
 - **When to use:** "How many chestnuts did we plant in 2025?"
 
@@ -76,7 +86,7 @@ Counts Tree assets matching optional filters.
 
 Returns a list of Tree assets with optional filters and configurable fields.
 
-- **Parameters:** `species`, `min_dbh_cm`, `max_dbh_cm`, `stratum`, `limit` (default 50, max 500), `fields` (sparse fieldset override)
+- **Parameters:** `species`, `min_dbh_cm`, `max_dbh_cm`, `stratum`, `tenure` (omit for home-farm only), `limit` (default 50, max 500), `fields` (sparse fieldset override)
 - **Returns:** List of flat attribute dicts with resolved relationship names
 - **When to use:** "Show me all trees in the high canopy stratum with DBH over 10cm."
 
@@ -110,7 +120,7 @@ mirror. Distances are in metres.
 
 Lists harvest logs with their harvested assets and quantities.
 
-- **Parameters:** `asset_id` (filter to one asset's harvests), `since` / `until` (ISO timestamps), `limit` (default 50)
+- **Parameters:** `asset_id` (filter to one asset's harvests), `since` / `until` (ISO timestamps), `tenure` (omit to exclude client harvests), `limit` (default 50)
 - **Returns:** `[{id, name, timestamp, status, notes, assets: [names], quantities: [{value, units, measure, label}]}]`, newest first
 - **When to use:** "What did we harvest from the Apple tree?" or "harvests since June"
 
@@ -118,7 +128,7 @@ Lists harvest logs with their harvested assets and quantities.
 
 Aggregates harvest quantities by a dimension.
 
-- **Parameters:** `group_by` — `asset`, `month` (YYYY-MM), or `measure` (count / weight / …)
+- **Parameters:** `group_by` — `asset`, `month` (YYYY-MM), or `measure` (count / weight / …); `tenure` (omit to exclude client harvests)
 - **Returns:** `[{group, total_value, harvest_count}]`, sorted by group
 - **When to use:** "How much have we harvested per month this season?"
 

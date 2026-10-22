@@ -178,20 +178,23 @@ class Tree extends FarmAssetType {
           'view' => -5,
         ],
       ],
-      // Tenure distinguishes a permanent orchard planting from temporary
-      // nursery stock (e.g. alley-cropped eastern redbud grown between
-      // orchard trees, destined for nursery sale). Set by the Odoo->farmOS
-      // sync from the source product/category; drives distinct map styling
-      // (the GeoJSON export carries this as a feature property) and the
-      // archive-on-sale lifecycle.
+      // Tenure answers "whose tree is this": `permanent` is our orchard,
+      // `nursery_stock` is alley-cropped stock destined for nursery sale,
+      // and `client` is a tree on a consulting client's land (the consult
+      // dashboard keeps every client in this one farmOS instance). Set by
+      // the Odoo->farmOS sync from the source location/category; drives
+      // distinct map styling (the GeoJSON export carries this as a feature
+      // property), the archive-on-sale lifecycle, and the default exclusion
+      // of client trees from home-farm counts and harvest receipts.
+      //
+      // The allowed-values list is the single source of truth, reused by
+      // farm_syntropic_update_8004() to extend existing sites. Keep it in
+      // sync with tenureFieldAllowedValues() below.
       'tenure' => [
         'type' => 'list_string',
         'label' => $this->t('Tenure'),
-        'description' => $this->t('Whether this is a permanent orchard planting or temporary nursery stock for sale.'),
-        'allowed_values' => [
-          'permanent' => 'Permanent (orchard planting)',
-          'nursery_stock' => 'Nursery stock (for sale)',
-        ],
+        'description' => $this->t('Whether this is a permanent orchard planting, nursery stock for sale, or a consulting client planting.'),
+        'allowed_values' => self::tenureFieldAllowedValues(),
         'weight' => [
           'form' => -3,
           'view' => -3,
@@ -218,6 +221,24 @@ class Tree extends FarmAssetType {
     }
 
     return $fields;
+  }
+
+  /**
+   * The allowed values for the Tree `tenure` list field.
+   *
+   * Single source of truth so the plugin definition (fresh installs) and
+   * farm_syntropic_update_8004() (existing sites) stay in lockstep — exactly
+   * the capacity_unit pattern on the Infrastructure asset type.
+   *
+   * @return array
+   *   Keyed value => human label.
+   */
+  public static function tenureFieldAllowedValues(): array {
+    return [
+      'permanent' => 'Permanent (orchard planting)',
+      'nursery_stock' => 'Nursery stock (for sale)',
+      'client' => 'Client (consulting client planting)',
+    ];
   }
 
 }

@@ -23,7 +23,12 @@ import os
 import time
 
 from farmos_writer import FarmOSWriter
-from mapping import Transfer, build_tree_attributes, determine_tenure
+from mapping import (
+    DEFAULT_CLIENT_LOCATION_PREFIX,
+    Transfer,
+    build_tree_attributes,
+    determine_tenure,
+)
 from odoo_client import OdooClient
 from state import SyncState
 
@@ -40,12 +45,14 @@ class SyncService:
         state: SyncState,
         orchard_location_id: int,
         nursery_stock_categories: set[str],
+        client_location_prefix: str = DEFAULT_CLIENT_LOCATION_PREFIX,
     ) -> None:
         self._odoo = odoo
         self._farmos = farmos
         self._state = state
         self._orchard_id = orchard_location_id
         self._nursery_cats = nursery_stock_categories
+        self._client_prefix = client_location_prefix
 
     def run_once(self) -> dict:
         """Run a single sync pass. Returns counts {created, archived, skipped}."""
@@ -83,7 +90,12 @@ class SyncService:
             log.debug("skip move-in: lot %s already synced", transfer.lot)
             counts["skipped"] += 1
             return
-        tenure = determine_tenure(transfer.category_name, self._nursery_cats)
+        tenure = determine_tenure(
+            transfer.category_name,
+            self._nursery_cats,
+            location_name=transfer.location_name,
+            client_location_prefix=self._client_prefix,
+        )
         attrs = build_tree_attributes(transfer, tenure)
         self._farmos.create_tree(attrs, species_name=transfer.species)
         log.info("created Tree for lot %s (tenure=%s)", transfer.lot, tenure)
@@ -136,7 +148,8 @@ def build_service_from_env() -> SyncService:
     nursery_cats = {
         c.strip() for c in os.environ.get("NURSERY_STOCK_CATEGORIES", "").split(",") if c.strip()
     }
-    return SyncService(odoo, farmos, state, orchard_id, nursery_cats)
+    client_prefix = os.environ.get("CLIENT_LOCATION_PREFIX", DEFAULT_CLIENT_LOCATION_PREFIX)
+    return SyncService(odoo, farmos, state, orchard_id, nursery_cats, client_prefix)
 
 
 def main() -> None:

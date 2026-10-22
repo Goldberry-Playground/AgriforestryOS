@@ -26,17 +26,41 @@ class Transfer:
     source: str | None = None
     move_line_id: int | None = None
     date: str | None = None   # ISO8601 from Odoo
+    # Destination stock location name for a move-in. A location whose name
+    # starts with CLIENT_LOCATION_PREFIX marks a consulting-client planting
+    # (tenure=client); None for the home-farm Orchard flow.
+    location_name: str | None = None
 
 
-def determine_tenure(category_name: str | None, nursery_stock_categories: set[str]) -> str:
-    """Classify a tree as permanent orchard planting vs. saleable nursery stock.
+# A client's install uses a real Odoo stock location per the consult spec;
+# its name is prefixed so the sync can tell a client planting from ours
+# without a category lookup. Overridable via CLIENT_LOCATION_PREFIX.
+DEFAULT_CLIENT_LOCATION_PREFIX = "Client:"
 
-    A product whose category is in `nursery_stock_categories` (e.g.
-    "Plants / Nursery Stock") is temporary alley-crop stock destined for
-    sale. Everything else defaults to a permanent orchard planting — the
-    safe default, since misclassifying permanent stock as saleable is worse
-    than the reverse.
+
+def determine_tenure(
+    category_name: str | None,
+    nursery_stock_categories: set[str],
+    location_name: str | None = None,
+    client_location_prefix: str = DEFAULT_CLIENT_LOCATION_PREFIX,
+) -> str:
+    """Classify a tree's tenure: client vs. nursery stock vs. permanent.
+
+    Order of precedence, strongest signal first:
+
+    1. `client` — the move is into a stock location whose name starts with
+       `client_location_prefix` (default "Client:"). These are trees on a
+       consulting client's land: they live in the one shared farmOS instance
+       but must stay out of home-farm counts, maps and harvest receipts.
+    2. `nursery_stock` — the product's category is in
+       `nursery_stock_categories` (e.g. "Plants / Nursery Stock"): temporary
+       alley-crop stock destined for sale.
+    3. `permanent` — the safe default (orchard planting), since
+       misclassifying a permanent planting as saleable is worse than the
+       reverse.
     """
+    if location_name and client_location_prefix and location_name.startswith(client_location_prefix):
+        return "client"
     if category_name and category_name in nursery_stock_categories:
         return "nursery_stock"
     return "permanent"

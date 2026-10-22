@@ -68,11 +68,56 @@ async def list_asset_types() -> list[dict]:
 # Tool: count_trees
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Tenure filtering
+# ---------------------------------------------------------------------------
+# A Tree's `tenure` answers "whose tree is this": `permanent` is our orchard,
+# `nursery_stock` is stock in the alleys for sale, `client` is on someone
+# else's land (the consulting dashboard). Home-farm counts, queries and
+# harvest totals must stay home-farm numbers, so every tree/harvest tool
+# EXCLUDES `client` by default. Pass an explicit `tenure` to scope to exactly
+# one value (including `client`).
+
+_TENURE_VALUES = ("permanent", "nursery_stock", "client")
+_CLIENT_TENURE = "client"
+
+
+def _validate_tenure(tenure: str | None) -> None:
+    if tenure is not None and tenure not in _TENURE_VALUES:
+        raise ToolError(
+            f"tenure must be one of: {', '.join(_TENURE_VALUES)} (got {tenure!r})"
+        )
+
+
+def _tree_tenure_filter_params(tenure: str | None) -> dict:
+    """JSON:API query params that scope a Tree collection by tenure.
+
+    - tenure given → keep only trees with exactly that value.
+    - tenure None  → exclude `client`, but KEEP trees whose tenure is NULL
+      (home-farm trees entered by hand never got a tenure). A bare
+      `tenure <> client` would silently drop the NULL rows, so we OR it with
+      an IS NULL condition.
+    """
+    if tenure is not None:
+        return {"filter[tenure]": tenure}
+    return {
+        "filter[not-client][group][conjunction]": "OR",
+        "filter[tenure-null][condition][path]": "tenure",
+        "filter[tenure-null][condition][operator]": "IS NULL",
+        "filter[tenure-null][condition][memberOf]": "not-client",
+        "filter[tenure-ne][condition][path]": "tenure",
+        "filter[tenure-ne][condition][value]": _CLIENT_TENURE,
+        "filter[tenure-ne][condition][operator]": "<>",
+        "filter[tenure-ne][condition][memberOf]": "not-client",
+    }
+
+
 @mcp.tool()
 async def count_trees(
     species: str | None = None,
     stratum: str | None = None,
     planting_year: int | None = None,
+    tenure: str | None = None,
 ) -> dict:
     """Count Tree assets matching optional filters.
 
@@ -80,11 +125,15 @@ async def count_trees(
         species: Filter by species name (e.g. "American Chestnut").
         stratum: Filter by syntropic stratum name (e.g. "High Canopy").
         planting_year: Filter to trees planted in this calendar year.
+        tenure: One of permanent|nursery_stock|client. Omit to count
+            home-farm trees only (everything EXCEPT client).
 
     Returns:
         {"count": int, "filters_applied": dict}
     """
+    _validate_tenure(tenure)
     params: dict = {"page[limit]": "0"}
+    params.update(_tree_tenure_filter_params(tenure))
     filters_applied: dict = {}
 
     if species:
@@ -97,6 +146,8 @@ async def count_trees(
         params["filter[planting_date][value]"] = str(planting_year)
         params["filter[planting_date][operator]"] = "STARTS_WITH"
         filters_applied["planting_year"] = planting_year
+    if tenure:
+        filters_applied["tenure"] = tenure
 
     response = await _client.get("/jsonapi/asset/tree", params=params)
 
@@ -126,6 +177,7 @@ async def query_trees(
     min_dbh_cm: float | None = None,
     max_dbh_cm: float | None = None,
     stratum: str | None = None,
+    tenure: str | None = None,
     limit: int = 50,
     fields: list[str] | None = None,
 ) -> list[dict]:
@@ -136,6 +188,8 @@ async def query_trees(
         min_dbh_cm: Minimum DBH in centimeters (inclusive).
         max_dbh_cm: Maximum DBH in centimeters (inclusive).
         stratum: Filter by syntropic stratum name.
+        tenure: One of permanent|nursery_stock|client. Omit to return
+            home-farm trees only (everything EXCEPT client).
         limit: Max records to return (clamped to 500).
         fields: Override default sparse fieldset. Defaults to
                 [id, name, species, dbh_cm, height_m, stratum, health_status, planting_date].
@@ -146,6 +200,7 @@ async def query_trees(
     Range filter syntax (Drupal JSON:API two-condition form):
         filter[dbh-min][path]=dbh_cm&filter[dbh-min][value]=N&filter[dbh-min][operator]=%3E%3D
     """
+    _validate_tenure(tenure)
     effective_limit = min(limit, 500)
     effective_fields = fields or _DEFAULT_TREE_FIELDS
 
@@ -154,6 +209,7 @@ async def query_trees(
         "page[limit]": str(effective_limit),
         "include": "species,stratum,succession_stage,health_status",
     }
+    params.update(_tree_tenure_filter_params(tenure))
 
     if species:
         params["filter[species.name]"] = species
@@ -329,6 +385,7 @@ async def list_harvests(
     asset_id: str | None = None,
     since: str | None = None,
     until: str | None = None,
+    tenure: str | None = None,
     limit: int = 50,
 ) -> list[dict]:
     """List harvest logs with their harvested assets and quantities.
@@ -337,6 +394,8 @@ async def list_harvests(
         asset_id: Filter to harvests referencing this asset UUID.
         since: ISO date/datetime — only harvests at or after this timestamp.
         until: ISO date/datetime — only harvests at or before this timestamp.
+        tenure: One of permanent|nursery_stock|client. Omit to list
+            home-farm harvests only (excludes client-tenure assets).
         limit: Max records (clamped to 500).
 
     Returns:
@@ -347,6 +406,7 @@ async def list_harvests(
     """
     import harvest
 
+    _validate_tenure(tenure)
     params: dict = {
         "include": _HARVEST_INCLUDE,
         "page[limit]": str(min(limit, 500)),
@@ -364,16 +424,18 @@ async def list_harvests(
         params["filter[ts-until][operator]"] = "<="
 
     response = await _client.get("/jsonapi/log/harvest", params=params)
-    return harvest.flatten_harvests(response)
+    return harvest.filter_by_tenure(harvest.flatten_harvests(response), tenure)
 
 
 @mcp.tool()
-async def harvest_summary(group_by: str = "asset") -> list[dict]:
+async def harvest_summary(group_by: str = "asset", tenure: str | None = None) -> list[dict]:
     """Aggregate harvest quantities by a dimension.
 
     Args:
         group_by: 'asset' (per harvested asset), 'month' (per YYYY-MM), or
                   'measure' (per quantity measure: count, weight, …).
+        tenure: One of permanent|nursery_stock|client. Omit to summarize
+            home-farm harvests only (excludes client-tenure assets).
 
     Returns:
         List of {group, total_value, harvest_count}, sorted by group.
@@ -384,10 +446,11 @@ async def harvest_summary(group_by: str = "asset") -> list[dict]:
 
     if group_by not in ("asset", "month", "measure"):
         raise ToolError("group_by must be one of: asset, month, measure")
+    _validate_tenure(tenure)
 
     response = await _client.get(
         "/jsonapi/log/harvest",
         params={"include": _HARVEST_INCLUDE, "page[limit]": "500"},
     )
-    harvests = harvest.flatten_harvests(response)
+    harvests = harvest.filter_by_tenure(harvest.flatten_harvests(response), tenure)
     return harvest.summarize(harvests, group_by)

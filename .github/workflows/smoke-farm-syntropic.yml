@@ -329,6 +329,62 @@ jobs:
           print('OK: JSON:API exposes tree asset with all custom fields')
           "
 
+      - name: Verify consult phase 1 update hooks ran and took effect
+        # The module ships at the latest schema version on a fresh install, so
+        # the update hooks are recorded as run; this asserts that recorded
+        # version AND the post-conditions the hooks + install establish:
+        # the Fungal stratum term, tenure=client, and the two land bundles.
+        env:
+          ASSERT_SCRIPT: |
+            // 1. Update hooks are recorded at >= 8004.
+            $version = \Drupal::service('update.update_hook_registry')
+              ->getInstalledVersion('farm_syntropic');
+            if ($version < 8004) {
+              throw new \Exception("FAIL: farm_syntropic schema version is $version, expected >= 8004");
+            }
+            print "OK: farm_syntropic update hooks recorded at version $version\n";
+
+            // 2. Fungal stratum term exists (hook_install / update_8003).
+            $terms = \Drupal::entityTypeManager()->getStorage('taxonomy_term')
+              ->loadByProperties(['vid' => 'syntropic_stratum', 'name' => 'Fungal']);
+            if (count($terms) !== 1) {
+              throw new \Exception("FAIL: expected exactly 1 Fungal stratum term, found " . count($terms));
+            }
+            print "OK: Fungal stratum term is present\n";
+
+            // 3. Tree tenure allows client (Tree plugin + update_8004).
+            $tenure = \Drupal::service('entity_field.manager')
+              ->getFieldDefinitions('asset', 'tree')['tenure'];
+            $allowed = $tenure->getSetting('allowed_values');
+            foreach (['permanent', 'nursery_stock', 'client'] as $v) {
+              if (!array_key_exists($v, $allowed)) {
+                throw new \Exception("FAIL: tree tenure missing allowed value '$v'");
+              }
+            }
+            print "OK: tree tenure allows permanent, nursery_stock, client\n";
+
+            // 4. Property + water land bundles register with their fields.
+            $types = \Drupal::entityTypeManager()->getStorage('asset_type');
+            foreach (['property', 'water'] as $id) {
+              if (!$types->load($id)) {
+                throw new \Exception("FAIL: land bundle '$id' not registered");
+              }
+            }
+            $prop = \Drupal::service('entity_field.manager')->getFieldDefinitions('asset', 'property');
+            foreach (['client_name', 'odoo_opportunity_id', 'odoo_stock_location_id', 'status', 'geometry'] as $f) {
+              if (!array_key_exists($f, $prop)) {
+                throw new \Exception("FAIL: property bundle missing field '$f'");
+              }
+            }
+            $water = \Drupal::service('entity_field.manager')->getFieldDefinitions('asset', 'water');
+            if (!array_key_exists('geometry', $water)) {
+              throw new \Exception("FAIL: water bundle missing geometry field");
+            }
+            print "OK: property and water land bundles registered with their fields\n";
+        run: |
+          docker compose -f docker-compose.smoke.yml exec -T -e ASSERT_SCRIPT="$ASSERT_SCRIPT" www \
+            drush php:eval "$ASSERT_SCRIPT"
+
       - name: Dump container logs on failure
         if: failure()
         run: docker compose -f docker-compose.smoke.yml logs --no-color
