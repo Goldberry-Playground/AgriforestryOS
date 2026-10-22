@@ -47,6 +47,7 @@ All via environment variables (never hard-coded):
 | `ODOO_ORCHARD_LOCATION` | Orchard location name (default `Orchard`) |
 | `ODOO_ORCHARD_LOCATION_ID` | Skip name lookup; use this id directly |
 | `NURSERY_STOCK_CATEGORIES` | Comma-separated Odoo product categories that mean `nursery_stock` |
+| `CLIENT_LOCATION_PREFIX` | Stock-location name prefix that marks a consulting-client planting → tenure `client` (default `Client:`) |
 | `SYNC_STATE_FILE` | Cursor file path (default `/data/sync_state.json`) |
 | `POLL_INTERVAL_SECONDS` | Loop interval (default `900` = 15 min) |
 | `LOG_LEVEL` | `INFO` (default) / `DEBUG` |
