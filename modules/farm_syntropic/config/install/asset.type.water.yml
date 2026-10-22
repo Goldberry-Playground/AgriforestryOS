@@ -1,0 +1,11 @@
+uuid: f3b973ed-226f-4dcb-803a-d24bfc0c0973
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - farm_syntropic
+id: water
+label: Water
+description: 'A pond, stream or wet spot, as a Point or Polygon. Used on the home farm and on client properties.'
+new_revision: true
