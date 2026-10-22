@@ -199,14 +199,16 @@ function farm_syntropic_update_8004(): string {
   $field_manager = \Drupal::service('entity_field.manager');
   $field_manager->clearCachedFieldDefinitions();
 
-  // The authoritative current definition from the Tree plugin (code).
+  // The authoritative current definition from the Tree plugin (code),
+  // which already carries the `client` value.
   $definitions = $field_manager->getFieldDefinitions('asset', 'tree');
   if (!isset($definitions['tenure'])) {
     return 'Tree tenure field not found; nothing to do.';
   }
   $current = $definitions['tenure']->getFieldStorageDefinition();
+  $allowed = $current->getSettings()['allowed_values'] ?? [];
 
-  // The definition the site last installed (what validation reads from).
+  // The definition the site last installed (what the stored schema knows).
   $installed = $update_manager->getFieldStorageDefinition('tenure', 'asset');
   if (!$installed) {
     // No stored definition yet (very old/odd state) — install the current one.
@@ -219,13 +221,17 @@ function farm_syntropic_update_8004(): string {
     return 'Installed tenure field storage with the client value.';
   }
 
-  $allowed = $current->getSetting('allowed_values') ?? [];
-  if (array_key_exists('client', $allowed)) {
-    // Push the current (client-inclusive) settings onto the stored def.
-    $installed->setSetting('allowed_values', $allowed);
-    $update_manager->updateFieldStorageDefinition($installed);
-    return 'Tree tenure now allows: ' . implode(', ', array_keys($allowed)) . '.';
+  // Idempotent: if the stored definition already allows client, do nothing.
+  $installed_allowed = $installed->getSettings()['allowed_values'] ?? [];
+  if (array_key_exists('client', $installed_allowed)) {
+    return 'Tree tenure already allows client; nothing to do.';
   }
 
-  return 'Tree tenure allowed values unchanged (client not in definition).';
+  // Sync the stored storage definition to the current (client-inclusive) one.
+  // allowed_values is a list_string SETTING, not a schema-affecting change,
+  // so this updates the stored definition in place and touches no column or
+  // row. Passing the current definition avoids mutating the interface
+  // returned above (which exposes no setter).
+  $update_manager->updateFieldStorageDefinition($current);
+  return 'Tree tenure now allows: ' . implode(', ', array_keys($allowed)) . '.';
 }
