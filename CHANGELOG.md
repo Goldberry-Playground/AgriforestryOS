@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- AgriforestryOS: restructure design `docs/superpowers/specs/2026-11-01-consult-platform-restructure-design.md` — this repo becomes the Grove Consult platform (consult app moves in from grove-sites, lab prototypes under `labs/`, fresh `main` with `4.x` tagged `archive/farmos-fork`, back into the agent pipeline). Train #5.
+
 ### Removed
 
 - AgriforestryOS fork: deleted the dead `.github/workflows/deliver.yml` — a fork-inherited upstream release workflow that was already disabled and can never run here (wrong repo context); removing it de-noises the Actions tab and the required-checks audit.
