@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- AgriforestryOS fork: lockfile-only CVE bumps from the 2026-11-01 security scan (8 critical / 18 high → 0 / 0 in `trivy fs`). `mcp-server/uv.lock`: authlib 1.9.2, pyjwt 2.15.1, anyio 4.14.2, certifi 2026.10.23, cryptography 50.0.2, dnspython 2.9.1, joserfc 1.7.7, mcp 1.30.0, starlette 1.10.0. `sync-service/` and `postgis-etl/`: anyio 4.16.0, certifi 2026.10.23. `backup-service/`: urllib3 2.8.0. No `pyproject.toml` ranges changed; every service's pytest passes.
+
 ### Removed
 
 - AgriforestryOS fork: deleted the dead `.github/workflows/deliver.yml` — a fork-inherited upstream release workflow that was already disabled and can never run here (wrong repo context); removing it de-noises the Actions tab and the required-checks audit.
