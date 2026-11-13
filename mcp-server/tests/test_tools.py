@@ -171,3 +171,60 @@ async def test_list_infrastructure_condition_filter(httpx_mock: HTTPXMock, load_
     from server import list_infrastructure
     result = await list_infrastructure(condition="needs_repair")
     assert isinstance(result, list)
+
+
+# --- tenure filter default + override (consult phase 1 A) -------------------
+
+@pytest.mark.asyncio
+async def test_count_trees_default_excludes_client(httpx_mock: HTTPXMock, load_fixture):
+    fixture = load_fixture("trees_collection.json")
+    httpx_mock.add_response(method="GET", json=fixture)
+    from server import count_trees
+    await count_trees()
+    url_str = str(httpx_mock.get_requests()[0].url)
+    # Default sends the OR(IS NULL, <> client) group so home-farm counts
+    # exclude client trees but keep hand-entered (NULL tenure) trees.
+    assert "not-client" in url_str
+    assert "client" in url_str
+    assert "IS+NULL" in url_str or "IS%20NULL" in url_str
+
+
+@pytest.mark.asyncio
+async def test_count_trees_explicit_tenure(httpx_mock: HTTPXMock, load_fixture):
+    fixture = load_fixture("trees_collection.json")
+    httpx_mock.add_response(method="GET", json=fixture)
+    from server import count_trees
+    result = await count_trees(tenure="client")
+    url_str = str(httpx_mock.get_requests()[0].url)
+    assert "filter%5Btenure%5D=client" in url_str or "filter[tenure]=client" in url_str
+    assert "not-client" not in url_str
+    assert result["filters_applied"].get("tenure") == "client"
+
+
+@pytest.mark.asyncio
+async def test_count_trees_invalid_tenure_raises():
+    from server import count_trees
+    from fastmcp.exceptions import ToolError
+    with pytest.raises(ToolError, match="tenure"):
+        await count_trees(tenure="bogus")
+
+
+@pytest.mark.asyncio
+async def test_query_trees_default_excludes_client(httpx_mock: HTTPXMock, load_fixture):
+    fixture = load_fixture("trees_collection.json")
+    httpx_mock.add_response(method="GET", json=fixture)
+    from server import query_trees
+    await query_trees()
+    url_str = str(httpx_mock.get_requests()[0].url)
+    assert "not-client" in url_str
+
+
+@pytest.mark.asyncio
+async def test_query_trees_explicit_tenure(httpx_mock: HTTPXMock, load_fixture):
+    fixture = load_fixture("trees_collection.json")
+    httpx_mock.add_response(method="GET", json=fixture)
+    from server import query_trees
+    await query_trees(tenure="nursery_stock")
+    url_str = str(httpx_mock.get_requests()[0].url)
+    assert "filter%5Btenure%5D=nursery_stock" in url_str or "filter[tenure]=nursery_stock" in url_str
+    assert "not-client" not in url_str

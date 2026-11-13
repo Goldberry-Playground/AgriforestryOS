@@ -73,9 +73,13 @@ def flatten_harvests(response: dict) -> list[dict]:
         rels = log.get("relationships", {})
 
         asset_names = []
+        asset_tenures = []
         for ref in _rel_list(rels.get("asset")):
             if ref["id"] in names:
                 asset_names.append(names[ref["id"]])
+            asset = resources.get(ref["id"])
+            if asset is not None:
+                asset_tenures.append(asset.get("attributes", {}).get("tenure"))
 
         quantities = []
         for ref in _rel_list(rels.get("quantity")):
@@ -98,9 +102,30 @@ def flatten_harvests(response: dict) -> list[dict]:
             "status": attrs.get("status"),
             "notes": (attrs.get("notes") or {}).get("value") if isinstance(attrs.get("notes"), dict) else attrs.get("notes"),
             "assets": asset_names,
+            "asset_tenures": asset_tenures,
             "quantities": quantities,
         })
     return out
+
+
+def filter_by_tenure(harvests: list[dict], tenure: str | None) -> list[dict]:
+    """Scope flattened harvests by the tenure of their harvested assets.
+
+    - tenure given → keep harvests that reference at least one asset with
+      exactly that tenure.
+    - tenure None  → EXCLUDE harvests that reference a `client` asset, so
+      home-farm yield totals stay home-farm numbers. Harvests whose assets
+      have no tenure (NULL) are kept.
+
+    `asset_tenures` is populated by flatten_harvests; a harvest missing it
+    (older shape) is treated as having no client asset.
+    """
+    if tenure is not None:
+        return [h for h in harvests if tenure in (h.get("asset_tenures") or [])]
+    return [
+        h for h in harvests
+        if "client" not in (h.get("asset_tenures") or [])
+    ]
 
 
 def _rel_list(rel: dict | None) -> list[dict]:
