@@ -1,0 +1,38 @@
+/* Interim styles for the placeholder shell; the spec §D screens bring the
+   design system (@grove/tokens + Tailwind, same as nursery). */
+:root {
+  color-scheme: light;
+  --consult-bg: #f7f4ec;
+  --consult-fg: #23301f;
+  --consult-muted: #4d5a47;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--consult-bg);
+  color: var(--consult-fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+
+.shell {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 6rem 1.5rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--consult-muted);
+}
+
+h1 {
+  margin: 0 0 1rem;
+  font-size: 2.25rem;
+  line-height: 1.15;
+}
