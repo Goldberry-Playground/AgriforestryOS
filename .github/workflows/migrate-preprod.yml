@@ -1,0 +1,64 @@
+name: Run DB migrations (preprod) [manual]
+
+# Deliberate, human-triggered farmOS migrations on the preprod droplet — NOT part
+# of auto-deploy. This is the "migrations are manual" decision: drush updb runs
+# the update hooks (e.g. farm_syntropic_update_8002) only when a human clicks
+# Run workflow, after reviewing what's pending.
+#
+# Manual only (workflow_dispatch). Same secrets as deploy-preprod.yml.
+# Activate the same way: gh variable set DEPLOY_PREPROD_ENABLED --body true
+
+on:
+  workflow_dispatch:
+    inputs:
+      config_import:
+        description: "Also run drush cim (import config changes)?"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-preprod      # never overlap with an app deploy
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: drush updb on preprod droplet
+    runs-on: ubuntu-latest
+    if: ${{ vars.DEPLOY_PREPROD_ENABLED == 'true' }}
+    timeout-minutes: 15
+    steps:
+      - name: Write SSH key
+        env:
+          SSH_KEY: ${{ secrets.PREPROD_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Show pending updates, then migrate
+        env:
+          HOST: ${{ secrets.PREPROD_HOST }}
+          DO_CIM: ${{ inputs.config_import }}
+        run: |
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new"
+          $SSH "deploy@${HOST}" "DO_CIM=${DO_CIM}" bash -s <<'REMOTE'
+            set -euo pipefail
+            cd /opt/agriforestryos/repo/docker
+            COMPOSE="docker compose --env-file /opt/agriforestryos/.env -f docker-compose.server.yml"
+            echo "== Pending updates =="
+            $COMPOSE exec -T www drush updatedb:status || true
+            echo "== Pre-migrate snapshot (backup before updb) =="
+            # A migration is exactly where a bad update hook can corrupt data, so
+            # snapshot both DBs first. This MUST succeed before we touch updb.
+            $COMPOSE run --rm --no-deps backup --once --reason premigrate
+            echo "== Applying updates =="
+            $COMPOSE exec -T www drush updb -y
+            if [ "${DO_CIM:-false}" = "true" ]; then
+              echo "== Importing config =="
+              $COMPOSE exec -T www drush cim -y
+            fi
+            $COMPOSE exec -T www drush cr
+          REMOTE

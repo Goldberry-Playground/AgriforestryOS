@@ -1,0 +1,170 @@
+##
+# AgriforestryOS server stack — the ONE deploy unit shared by the preprod and
+# prod tiers (selected by the per-tier .env, not the compose file). farmOS +
+# Postgres + PostGIS + the Python sync/ETL/backup services. The MCP server and
+# QGIS are operator-local tools and are intentionally NOT here.
+#
+# Config comes entirely from /opt/agriforestryos/.env (written at deploy time
+# from GitHub/1Password secrets) — no secrets in this file.
+#
+# Usage on the host (the deploy workflow runs this):
+#   docker compose --env-file /opt/agriforestryos/.env \
+#     -f docker/docker-compose.server.yml up -d --build
+#
+# Migrations (drush updb) and the one-time farmOS install are MANUAL — see
+# docs/hosting/preprod-deploy.md. This stack never runs updb automatically.
+##
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    volumes:
+      - './db:/var/lib/postgresql/data'
+    environment:
+      POSTGRES_USER: ${FARMOS_DB_USER}
+      POSTGRES_PASSWORD: ${FARMOS_DB_PASSWORD}
+      POSTGRES_DB: ${FARMOS_DB_NAME}
+    # No published ports — only reachable on the internal docker network.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${FARMOS_DB_USER} -d $${FARMOS_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  www:
+    depends_on:
+      - db
+    # Production image: pinned farmOS base (by digest) with farm_syntropic baked
+    # in — NOT the moving 4.x-dev tag, and NOT a live bind-mount. `up -d --build`
+    # (what the deploy workflow runs) rebuilds this so committed module changes
+    # ship. See docker/farmos.Dockerfile.
+    build:
+      context: ..
+      dockerfile: docker/farmos.Dockerfile
+    image: agriforestryos/farmos:local
+    restart: unless-stopped
+    ports:
+      # Loopback only — the tailnet reaches farmOS via `tailscale serve` (HTTPS),
+      # never directly. Public access is impossible (cloud firewall + no 0.0.0.0 bind).
+      - '127.0.0.1:80:80'
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost/user/login >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    volumes:
+      # Persist the site (settings.php + sites/default/files) across restarts.
+      # The module is image content now, so it is NOT mounted here.
+      - 'farmos_sites:/opt/drupal/web/sites'
+    environment:
+      # Xdebug OFF on the server — it cripples request latency.
+      XDEBUG_MODE: 'off'
+
+  postgis:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    volumes:
+      - './postgis-db:/var/lib/postgresql/data'
+    environment:
+      POSTGRES_USER: ${POSTGIS_USER}
+      POSTGRES_PASSWORD: ${POSTGIS_PASSWORD}
+      POSTGRES_DB: ${POSTGIS_DB}
+    # No published ports — internal network + SSH tunnel only.
+
+  sync-service:
+    depends_on:
+      - www
+    build:
+      context: ../sync-service
+    restart: unless-stopped
+    volumes:
+      - 'sync_state:/data'
+    environment:
+      ODOO_URL: ${ODOO_URL}
+      ODOO_DB: ${ODOO_DB}
+      ODOO_USER: ${ODOO_USER}
+      ODOO_PASSWORD: ${ODOO_PASSWORD}
+      FARMOS_BASE_URL: 'http://www'
+      FARMOS_USERNAME: ${FARMOS_USERNAME}
+      FARMOS_PASSWORD: ${FARMOS_PASSWORD}
+      ODOO_ORCHARD_LOCATION: ${ODOO_ORCHARD_LOCATION:-Orchard}
+      NURSERY_STOCK_CATEGORIES: ${NURSERY_STOCK_CATEGORIES:-}
+      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-900}
+
+  harvest-sync:
+    depends_on:
+      - www
+    build:
+      context: ../sync-service
+    # Same image as sync-service; runs the harvest→Odoo receipt sync instead.
+    entrypoint: ["uv", "run", "--no-dev", "python", "harvest_sync.py"]
+    restart: unless-stopped
+    volumes:
+      - 'harvest_state:/data'
+    environment:
+      ODOO_URL: ${ODOO_URL}
+      ODOO_DB: ${ODOO_DB}
+      ODOO_USER: ${ODOO_USER}
+      ODOO_PASSWORD: ${ODOO_PASSWORD}
+      FARMOS_BASE_URL: 'http://www'
+      FARMOS_USERNAME: ${FARMOS_USERNAME}
+      FARMOS_PASSWORD: ${FARMOS_PASSWORD}
+      HARVEST_POLL_SECONDS: ${HARVEST_POLL_SECONDS:-900}
+
+  postgis-etl:
+    depends_on:
+      - www
+      - postgis
+    build:
+      context: ../postgis-etl
+    restart: unless-stopped
+    environment:
+      FARMOS_BASE_URL: 'http://www'
+      FARMOS_USERNAME: ${FARMOS_USERNAME}
+      FARMOS_PASSWORD: ${FARMOS_PASSWORD}
+      POSTGIS_DSN: 'postgresql://${POSTGIS_USER}:${POSTGIS_PASSWORD}@postgis:5432/${POSTGIS_DB}'
+      ETL_INTERVAL_SECONDS: ${ETL_INTERVAL_SECONDS:-900}
+
+  backup:
+    depends_on:
+      - db
+      - postgis
+    build:
+      context: ../backup-service
+    restart: unless-stopped
+    volumes:
+      # Local dumps. In prod this dir should sit on an attached DO block-storage
+      # volume (see infra/terraform) so it survives droplet replacement; the
+      # off-droplet copy goes to Spaces regardless.
+      - 'backups:/backups'
+    environment:
+      FARMOS_DB_USER: ${FARMOS_DB_USER}
+      FARMOS_DB_PASSWORD: ${FARMOS_DB_PASSWORD}
+      FARMOS_DB_NAME: ${FARMOS_DB_NAME}
+      POSTGIS_USER: ${POSTGIS_USER}
+      POSTGIS_PASSWORD: ${POSTGIS_PASSWORD}
+      POSTGIS_DB: ${POSTGIS_DB}
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      # Spaces (off-droplet copy). Omit to run local-only.
+      SPACES_BUCKET: ${SPACES_BUCKET:-}
+      SPACES_KEY: ${SPACES_KEY:-}
+      SPACES_SECRET: ${SPACES_SECRET:-}
+      SPACES_ENDPOINT: ${SPACES_ENDPOINT:-https://nyc3.digitaloceanspaces.com}
+      SPACES_REGION: ${SPACES_REGION:-nyc3}
+      BACKUP_S3_PREFIX: ${BACKUP_S3_PREFIX:-agriforestryos/backups}
+
+volumes:
+  farmos_sites:
+  sync_state:
+  harvest_state:
+  # Bound to a host path so prod can put it on an attached block-storage volume
+  # (backups survive droplet replacement); on dev the path is just droplet disk.
+  # cloud-init (infra/terraform) creates/mounts /opt/agriforestryos/backups.
+  backups:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/agriforestryos/backups

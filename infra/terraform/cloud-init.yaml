@@ -1,0 +1,70 @@
+#cloud-config
+# Bootstraps a fresh Ubuntu droplet into a Docker host that is ready to run the
+# AgriforestryOS stack. Idempotent enough for first boot; app deploy itself is
+# done by the GitHub Actions workflow (it SSHes in as `deploy`).
+
+package_update: true
+package_upgrade: false
+packages:
+  - ca-certificates
+  - curl
+  - git
+  - ufw
+
+users:
+  - name: deploy
+    groups: [sudo, docker]
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+
+write_files:
+  - path: /etc/profile.d/agriforestryos.sh
+    content: |
+      export AGRIFORESTRYOS_DIR=/opt/agriforestryos
+
+runcmd:
+  # Docker Engine + compose plugin (official convenience script).
+  - curl -fsSL https://get.docker.com | sh
+  - usermod -aG docker deploy
+  - systemctl enable --now docker
+  # App directory, owned by the deploy user.
+  - mkdir -p /opt/agriforestryos/backups
+  # If a backups block-volume is attached, format (once) + mount it at the
+  # backups dir so dumps survive droplet replacement. `nofail` so a missing/
+  # bad device never blocks boot. No volume (dev) → the dir is just disk.
+  - |
+    DEV='${backups_device}'
+    if [ -n "$DEV" ] && [ -b "$DEV" ]; then
+      blkid "$DEV" >/dev/null 2>&1 || mkfs.ext4 -F "$DEV"
+      grep -q "$DEV" /etc/fstab || echo "$DEV /opt/agriforestryos/backups ext4 defaults,nofail,discard 0 2" >> /etc/fstab
+      mount -a
+    fi
+  - chown -R deploy:deploy /opt/agriforestryos
+  # Clone the repo so the box is deploy-ready (GHA pulls + composes after this).
+  - sudo -u deploy git clone --branch ${repo_branch} ${repo_url} /opt/agriforestryos/repo || true
+  # Tailscale: join the tailnet. farmOS is reachable ONLY over this mesh — the
+  # cloud firewall blocks public 80/443. WireGuard encrypts all of it, so basic
+  # auth over http on the tailnet is acceptable. --ssh also offers SSH over the
+  # tailnet (public 22 stays as break-glass).
+  - curl -fsSL https://tailscale.com/install.sh | sh
+  - tailscale up --authkey='${tailscale_auth_key}' --hostname='${tailscale_hostname}' --ssh
+  # Expose farmOS (loopback:80) on the tailnet over HTTPS with a real
+  # Tailscale-issued cert. Requires MagicDNS + HTTPS enabled in the tailnet
+  # admin (operator one-time step). https://<hostname>.<tailnet>.ts.net
+  # Wait for the daemon to reach Running first so `serve` doesn't race auth
+  # on a fresh boot (bounded ~60s; serve config is idempotent regardless).
+  - for i in $(seq 1 30); do tailscale status >/dev/null 2>&1 && break; sleep 2; done
+  - tailscale serve --bg 80
+  # ufw is defense-in-depth only. NOTE: Docker's published ports bypass ufw, so
+  # ufw is NOT what protects farmOS from the internet — the DigitalOcean cloud
+  # firewall is (see infra/terraform/main.tf). We allow SSH + anything arriving
+  # on the tailnet interface; DB ports stay off the public internet either way.
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp
+  - ufw allow in on tailscale0
+  - ufw --force enable
+
+final_message: "AgriforestryOS host ready after $UPTIME s — Docker installed, joined tailnet, repo cloned to /opt/agriforestryos/repo. farmOS is tailnet-only."

@@ -1,0 +1,44 @@
+{
+  "jsonapi": {"version": "1.1"},
+  "data": {
+    "type": "asset--tree",
+    "id": "a57ae309-feba-4034-a380-b20675aaab73",
+    "attributes": {
+      "drupal_internal__id": 1,
+      "name": "Chestnut Row A - Tree 1",
+      "variety": "Dunstan",
+      "dbh_cm": "15.50",
+      "height_m": "4.20",
+      "canopy_radius_m": "2.10",
+      "rootstock": "Chinese Chestnut",
+      "graft_variety": "Dunstan Hybrid",
+      "planting_date": "2025-03-15T04:00:00+00:00",
+      "source": "At the Grove Nursery",
+      "odoo_lot": null
+    },
+    "relationships": {
+      "species": {"data": {"type": "taxonomy_term--plant_type", "id": "term-uuid-1"}},
+      "stratum": {"data": {"type": "taxonomy_term--syntropic_stratum", "id": "stratum-uuid-1"}},
+      "health_status": {"data": {"type": "taxonomy_term--tree_health", "id": "health-uuid-1"}},
+      "succession_stage": {"data": null}
+    }
+  },
+  "included": [
+    {
+      "type": "taxonomy_term--plant_type",
+      "id": "term-uuid-1",
+      "attributes": {"name": "American Chestnut", "drupal_internal__tid": 1}
+    },
+    {
+      "type": "taxonomy_term--syntropic_stratum",
+      "id": "stratum-uuid-1",
+      "attributes": {"name": "High Canopy (2)", "drupal_internal__tid": 2}
+    },
+    {
+      "type": "taxonomy_term--tree_health",
+      "id": "health-uuid-1",
+      "attributes": {"name": "Good", "drupal_internal__tid": 3}
+    }
+  ],
+  "links": {"self": {"href": "http://farmos.local/jsonapi/asset/tree/a57ae309-feba-4034-a380-b20675aaab73"}}
+}

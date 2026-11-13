@@ -1,0 +1,83 @@
+name: Deploy to preprod
+
+# Auto-deploys the app to the Terraform-provisioned preprod droplet on every merge
+# to main. Deploys CODE only — `drush updb` (DB migrations) is a deliberate
+# MANUAL step (see migrate-preprod.yml), per the "migrations are manual" decision.
+#
+# Dormant until configured: the job is skipped unless the repo variable
+# DEPLOY_PREPROD_ENABLED == 'true', so merging this workflow doesn't cause failing runs
+# before the droplet exists. (Secrets can't be read in job-level `if:`; a repo
+# *variable* can — hence the vars gate.) To activate:
+#   gh variable set DEPLOY_PREPROD_ENABLED --body true
+# Required secrets once the box is up:
+#   PREPROD_HOST     — reserved IP from `terraform output -raw reserved_ip`
+#   PREPROD_SSH_KEY  — private key matching infra ssh_public_key
+#   PREPROD_ENV_FILE — full .env contents (1Password → GitHub secret)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'modules/**'
+      - 'sync-service/**'
+      - 'postgis-etl/**'
+      - 'backup-service/**'
+      - 'docker/docker-compose.server.yml'
+      - '.github/workflows/deploy-preprod.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-preprod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy app to preprod droplet
+    runs-on: ubuntu-latest
+    if: ${{ vars.DEPLOY_PREPROD_ENABLED == 'true' }}
+    timeout-minutes: 15
+    steps:
+      - name: Write SSH key + env file
+        env:
+          SSH_KEY: ${{ secrets.PREPROD_SSH_KEY }}
+          ENV_FILE: ${{ secrets.PREPROD_ENV_FILE }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$ENV_FILE" > /tmp/agri.env
+
+      - name: Ship env + deploy stack
+        env:
+          HOST: ${{ secrets.PREPROD_HOST }}
+        run: |
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new"
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
+            /tmp/agri.env "deploy@${HOST}:/opt/agriforestryos/.env"
+          $SSH "deploy@${HOST}" 'chmod 600 /opt/agriforestryos/.env'
+          $SSH "deploy@${HOST}" bash -s <<'REMOTE'
+            set -euo pipefail
+            cd /opt/agriforestryos/repo
+            git fetch --all --quiet
+            git checkout -B main origin/main
+            git reset --hard origin/main
+            cd docker
+            COMPOSE="docker compose --env-file /opt/agriforestryos/.env -f docker-compose.server.yml"
+            $COMPOSE up -d --build
+            # Cache rebuild is safe and idempotent. DB migrations (drush updb)
+            # are intentionally NOT run here — trigger migrate-preprod.yml manually.
+            $COMPOSE exec -T www drush cr || true
+            echo "== Post-deploy verify =="
+            # Wait up to ~2min for www to report healthy, then confirm HTTP 200.
+            for i in $(seq 1 24); do
+              status=$($COMPOSE ps --format '{{.Service}} {{.Health}}' | awk '$1=="www"{print $2}')
+              [ "$status" = "healthy" ] && break
+              sleep 5
+            done
+            [ "$status" = "healthy" ] || { echo "farmOS www not healthy: $status"; $COMPOSE ps; exit 1; }
+            $COMPOSE exec -T www curl -fsS http://localhost/user/login >/dev/null \
+              && echo "verify OK: farmOS responds 200" || { echo "farmOS HTTP check failed"; exit 1; }
+          REMOTE

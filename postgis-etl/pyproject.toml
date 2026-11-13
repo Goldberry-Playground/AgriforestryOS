@@ -1,0 +1,30 @@
+[project]
+name = "agriforestryos-postgis-etl"
+version = "0.1.0"
+description = "farmOS → PostGIS spatial-mirror ETL"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27,<1",
+    "psycopg[binary]>=3.1,<4",
+]
+
+[project.scripts]
+agriforestryos-postgis-etl = "etl:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+include = ["etl.py", "db.py", "extract.py", "farmos.py", "schema.sql"]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.2,<9",
+    "pytest-httpx>=0.30,<1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

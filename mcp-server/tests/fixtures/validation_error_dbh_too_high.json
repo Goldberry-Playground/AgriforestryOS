@@ -1,0 +1,11 @@
+{
+  "errors": [
+    {
+      "title": "Unprocessable Entity",
+      "detail": "This value should be 1000 or less.",
+      "source": {
+        "pointer": "/data/attributes/dbh_cm"
+      }
+    }
+  ]
+}
