@@ -1,0 +1,71 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><title>Planner Workshop</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+/* Layout: one sheet to put on the screen and print. Three stations in a row, each with a QR code, the link, and the three things to do. */
+:root{--paper:#f5f0e4;--card:#fffdf7;--ink:#1e2a1d;--ink-2:#5b6455;--line:#d8cfbb;--green:#1f4d33;--green-soft:#e1e9d6;--clay:#89592a;--clay-soft:#f0e2cf;--display:"Fraunces",Georgia,serif;--body:"Source Sans 3","Helvetica Neue",Arial,sans-serif}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--paper:#161a15;--card:#1e231c;--ink:#ebe5d6;--ink-2:#a7ae9e;--line:#353c31;--green:#9cc697;--green-soft:#243326;--clay:#d8a56a;--clay-soft:#3b2d1d;color-scheme:dark}}
+:root[data-theme="dark"]{--paper:#161a15;--card:#1e231c;--ink:#ebe5d6;--ink-2:#a7ae9e;--line:#353c31;--green:#9cc697;--green-soft:#243326;--clay:#d8a56a;--clay-soft:#3b2d1d;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);margin:0 0 6px}
+h1{font-family:var(--display);font-weight:400;font-size:38px;line-height:1.1;margin:0 0 8px;text-wrap:balance}
+h2{font-family:var(--display);font-weight:600;font-size:20px;margin:0}
+.lede{color:var(--ink-2);max-width:66ch;margin:0 0 24px}
+.stations{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+@media (max-width:900px){.stations{grid-template-columns:1fr}}
+.st{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.st .n{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--clay)}
+.qr{display:flex;justify-content:center;background:#fff;border-radius:8px;padding:12px;border:1px solid var(--line)}
+.qr img,.qr canvas{display:block;max-width:100%}
+.url{font-family:Menlo,monospace;font-size:12px;word-break:break-all;color:var(--ink-2)}
+ol{margin:0;padding-left:20px}ol li{margin:4px 0}
+.ask{background:var(--green-soft);color:var(--green);border-radius:8px;padding:10px 12px;font-size:14px}
+.foot{margin-top:24px;color:var(--ink-2);font-size:14px;max-width:70ch}
+.soon{border:1px dashed var(--line);border-radius:8px;padding:28px 12px;text-align:center;color:var(--ink-2);font-size:14px}
+</style></head><body>
+<div class="wrap">
+  <p class="eyebrow">At The Grove Nursery · Friday 2026-10-30</p>
+  <h1>Help us train the planner</h1>
+  <p class="lede">Two prototypes, nothing to install. Open one on your phone, build something for land you actually know, and change whatever we got wrong. Everything you do stays on your phone until you copy your session into the feedback form at the end.</p>
+  <div class="stations">
+    <div class="st">
+      <span class="n">Station 1 · everyone</span>
+      <h2>The planner</h2>
+      <div class="qr" id="qr1"></div>
+      <span class="url">lab.atthegrovenursery.com/planner</span>
+      <ol><li>Type your ZIP. Pick what you are building and what the ground is like.</li><li>Remove what you would not plant. Add from the suggested list.</li><li>Turn on tester mode, dispute a fact, suggest a plant we should carry.</li></ol>
+      <div class="ask">Then: Copy my session, and paste it into the feedback form.</div>
+    </div>
+    <div class="st">
+      <span class="n">Station 2 · consultants and farmers with acreage</span>
+      <h2>The consult flow</h2>
+      <div class="qr" id="qr2"></div>
+      <span class="url">lab.atthegrovenursery.com/consult</span>
+      <ol><li>New client. Enter a property you know: areas, acres, a practice for each.</li><li>Pick the goals, draft the plan, click a gap or a pick to see why.</li><li>Edit a section the way you would write it. Approve the plan.</li></ol>
+      <div class="ask">Then: Copy my session, and paste it into the feedback form.</div>
+    </div>
+    <div class="st">
+      <span class="n">Station 3 · before you leave</span>
+      <h2>Feedback form</h2>
+      <div class="qr" id="qr3"></div>
+      <span class="url" id="url3">lab.atthegrovenursery.com/feedback</span>
+      <ol><li>Paste your session.</li><li>What would you have planted instead, and why?</li><li>Would you use this to plan your own ground, or to plan for a client?</li></ol>
+      <div class="ask">Takes about three minutes. Your name is optional.</div>
+    </div>
+  </div>
+  <p class="foot">Hosted for the day on our own domain. Nothing here touches the shop or your account. Prices shown in the consult flow are placeholders.</p>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(function(){
+  if(typeof QRCode==='undefined')return;
+  const make=(id,text)=>{const el=document.getElementById(id);if(!el||!text)return;el.innerHTML='';new QRCode(el,{text,width:168,height:168,correctLevel:QRCode.CorrectLevel.M})};
+  make('qr1','https://lab.atthegrovenursery.com/planner');
+  make('qr2','https://lab.atthegrovenursery.com/consult');
+  const form='https://lab.atthegrovenursery.com/feedback';
+  if(form){make('qr3',form);document.getElementById('url3').textContent=form.replace(/^https?:\/\//,'')}
+})();
+</script>
+</body></html>

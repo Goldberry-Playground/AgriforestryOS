@@ -1,0 +1,424 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><title>Grove Consult Flow</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one working surface. Top bar with Pipeline and the open client; the client workspace is a stage tabbar over a two-column body that stacks on phones. Data in mono, headings in the nursery serif. */
+:root{
+  --bg:#f3f2ec; --card:#fbfaf6; --ink:#1c251d; --ink-2:#5c6659; --line:#d4d2c6;
+  --green:#245236; --green-soft:#dfe8db; --moss:#4e7b48;
+  --amber:#8a5f12; --amber-soft:#f6e9c6; --blue:#2c4f8f; --blue-soft:#e3e9f7; --bad:#8c2f2a; --bad-soft:#f3dad7;
+  --display:"Fraunces",Georgia,serif; --body:"Source Sans 3","Helvetica Neue",Arial,sans-serif; --mono:"IBM Plex Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#151915;--card:#1d231c;--ink:#e9e5d8;--ink-2:#a5ad9c;--line:#363d33;--green:#9dc698;--green-soft:#243326;--moss:#82b07a;--amber:#dcb14e;--amber-soft:#3a3117;--blue:#9db4e8;--blue-soft:#20293d;--bad:#e27d75;--bad-soft:#3e2321;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#151915;--card:#1d231c;--ink:#e9e5d8;--ink-2:#a5ad9c;--line:#363d33;--green:#9dc698;--green-soft:#243326;--moss:#82b07a;--amber:#dcb14e;--amber-soft:#3a3117;--blue:#9db4e8;--blue-soft:#20293d;--bad:#e27d75;--bad-soft:#3e2321;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:1320px;margin:0 auto;padding-block:14px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px;border-bottom:1px solid var(--line);padding-bottom:10px}
+.top .brand{font-family:var(--display);font-size:18px}
+.top nav{display:flex;flex-wrap:wrap;gap:4px}
+.top nav button{font:inherit;font-size:14px;border:0;background:transparent;color:var(--ink-2);padding:6px 10px;border-radius:6px;cursor:pointer}
+.top nav button[aria-current="page"]{color:var(--ink);background:var(--green-soft);font-weight:600}
+.top .right{margin-left:auto;display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ink-2)}
+h1{font-family:var(--display);font-weight:400;font-size:26px;margin:0;line-height:1.15;text-wrap:balance}
+h2{font-family:var(--display);font-weight:600;font-size:17px;margin:0 0 6px}
+.muted{color:var(--ink-2);font-size:13px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px}
+.client-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px;margin-top:16px}
+.tabs{display:flex;flex-wrap:wrap;gap:2px;border-bottom:1px solid var(--line);margin:10px 0 16px}
+.tabs button{font:inherit;font-size:14px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--ink-2);padding:8px 12px;cursor:pointer}
+.tabs button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--green);font-weight:600}
+.tabs button .n{display:inline-block;width:18px;height:18px;border-radius:50%;border:1px solid var(--line);font-size:11px;line-height:16px;text-align:center;margin-right:6px}
+.tabs button.done .n{background:var(--green);border-color:var(--green);color:var(--bg)}
+.cols{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:960px){.cols{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0}
+.stack{display:flex;flex-direction:column;gap:14px;min-width:0}
+label{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2);margin-bottom:3px}
+input,select,textarea{font:inherit;font-size:14px;border:1px solid var(--line);border-radius:6px;padding:7px 9px;background:var(--card);color:var(--ink);width:100%}
+textarea{min-height:90px;line-height:1.45}
+.f2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.f3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:520px){.f2,.f3{grid-template-columns:1fr}}
+.btn{font:inherit;font-size:14px;font-weight:600;padding:7px 13px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--green);border-color:var(--green);color:var(--bg)}
+.btn.small{font-size:12px;padding:4px 9px;font-weight:600}
+.btn.quiet{border-color:transparent;color:var(--ink-2)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.chip:focus-visible{outline:2px solid var(--moss);outline-offset:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:4px 11px;font:inherit;font-size:13px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--green);border-color:var(--green);color:var(--bg)}
+.badge{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:4px;background:var(--green-soft);color:var(--green)}
+.badge.gen{background:var(--amber-soft);color:var(--amber)}.badge.ed{background:var(--blue-soft);color:var(--blue)}.badge.bad{background:var(--bad-soft);color:var(--bad)}.badge.ghost{background:transparent;border:1px solid var(--line);color:var(--ink-2)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2);padding:6px 8px;border-bottom:1px solid var(--line);font-weight:600}
+td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+td.num,th.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px}
+.scroll{overflow-x:auto}
+.grid{table-layout:fixed}
+.grid td{height:34px;padding:4px 6px;font-size:12px;border:1px solid var(--line)}
+.grid td.pick{background:var(--green-soft)}
+.grid td.gap{background:var(--amber-soft);color:var(--amber)}
+.grid td.na{background:transparent;color:var(--line)}
+.grid td.sel{outline:2px solid var(--moss);outline-offset:-2px}
+.grid td button{all:unset;cursor:pointer;display:block;width:100%}
+.map{width:100%;height:auto;max-width:100%;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.rows div.r{display:grid;grid-template-columns:1.4fr .8fr .8fr .8fr 2fr;gap:8px;padding:7px 8px;border-bottom:1px solid var(--line);font-size:13px;align-items:center}
+.rows div.r.h{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2)}
+.sec{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.sec .h{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.sec .h strong{font-family:var(--display);font-weight:600;font-size:15px;margin-right:auto}
+.sec textarea{min-height:70px;font-size:13px}
+.prog{height:8px;background:var(--line);border-radius:4px;overflow:hidden}.prog i{display:block;height:100%;background:var(--green)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:3px 14px;font-size:14px}.kv .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px;text-align:right}
+.item{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.item .ic{flex:0 0 42px;font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:4px;text-align:center;padding:3px 0;color:var(--ink-2)}
+.item .c{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--ink-2);white-space:nowrap}
+.note{font-size:13px;color:var(--ink-2);border-left:3px solid var(--moss);padding:4px 10px}
+.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:6px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+pre{font-family:var(--mono);font-size:12px;white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px;margin:0;max-height:320px;overflow:auto}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style></head><body>
+
+<div class="wrap">
+  <div class="top">
+    <span class="brand">Grove Consult</span>
+    <nav id="nav"></nav>
+    <span class="right"><input type="text" id="whoname" placeholder="Your name" aria-label="Your name" style="width:150px;font-size:13px;padding:5px 8px"><button class="btn small" id="copysession" type="button">Copy my session</button><button class="btn quiet small" id="reset" type="button">Reset prototype</button></span>
+  </div>
+  <div class="note" style="margin-top:10px">Workshop: enter a client you know, pick a practice for each area, draft the plan, and change anything that is wrong. Then Copy my session and paste it into the feedback form.</div>
+  <textarea id="sessiontext" aria-label="Session summary" hidden style="width:100%;min-height:120px;font-family:var(--mono);font-size:12px;margin-top:8px"></textarea>
+  <main id="main"></main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+// ---------- vocabularies ----------
+const STRATA=[
+ {k:'emergent',n:'Emergent',stages:['abundance'],w:1,woody:true},
+ {k:'high',n:'High canopy',stages:['acc1','acc2','abundance'],w:2,woody:true},
+ {k:'low',n:'Low canopy',stages:['acc1','acc2'],w:3,woody:true},
+ {k:'shrub',n:'Shrub',stages:['placenta','acc1'],w:4,woody:true},
+ {k:'herb',n:'Herbaceous',stages:['placenta'],w:0},
+ {k:'ground',n:'Ground cover',stages:['placenta'],w:0},
+ {k:'root',n:'Root and tuber',stages:['placenta'],w:0},
+ {k:'fungal',n:'Fungal',stages:['placenta','acc1'],w:0},
+];
+const STAGES=[{k:'placenta',n:'Placenta',y:'0 to 2 yr'},{k:'acc1',n:'Accumulation 1',y:'2 to 6'},{k:'acc2',n:'Accumulation 2',y:'6 to 15'},{k:'abundance',n:'Abundance',y:'15 plus'}];
+const PRACTICES={
+ food:{n:'Homestead food forest',strata:['emergent','high','low','shrub','herb','ground','root','fungal'],rowSp:6,inRow:2.5,needs:'Water and daily access',infra:['drip','deerfence','paths'],retail:'Food forest track'},
+ alley:{n:'Alley cropping',strata:['emergent','high','low','shrub','ground'],rowSp:12,inRow:3,needs:'Workable alleys, headland turning room',infra:['drip','markers'],retail:'Agroforestry, alley'},
+ silvo:{n:'Silvopasture',strata:['emergent','high','ground'],rowSp:15,inRow:6,needs:'Pasture, stock water, fence lines',infra:['protection','paddock','water'],retail:'Agroforestry, silvopasture'},
+ forest:{n:'Forest farming',strata:['low','shrub','herb','ground','root','fungal'],rowSp:8,inRow:2,needs:'Standing canopy, shade-tolerant species only',infra:['trails','logyard'],retail:'Forest farming category'},
+ myco:{n:'Mycoforestry',strata:['high','low','fungal'],rowSp:8,inRow:2,needs:'Hardwood canopy, moisture, shade',infra:['logyard','soak','chips'],retail:'Mycoforestry category'},
+ riparian:{n:'Riparian buffer',strata:['high','low','shrub','herb','ground'],rowSp:4,inRow:2,needs:'Stream or pond edge, flood line mapped',infra:['exclusion','crossing'],retail:'Agroforestry, riparian'},
+ wind:{n:'Windbreak and hedgerow',strata:['emergent','high','low','shrub'],rowSp:3,inRow:2,needs:'Wind direction, what is protected',infra:['stakes','snowfence'],retail:'Agroforestry, windbreak'},
+};
+const INFRA={drip:['Drip line in row','m',0.6],deerfence:['Deer fence, perimeter','m',8],paths:['Paths and mulch','m',1.5],markers:['Row markers and stakeout','row',25],protection:['Tree protection per stem','stem',4],paddock:['Paddock fencing','m',6],water:['Stock water point','ea',350],trails:['Access trails','m',2],logyard:['Log yard and racks','ea',400],soak:['Soak tank','ea',250],chips:['Wood chips','m',1.2],exclusion:['Livestock exclusion fence','m',6],crossing:['Stream crossing','ea',600],stakes:['Protection stakes and tubes','stem',4],snowfence:['Snow fence, year one','m',3]};
+const MODULES=[
+ {k:'lifecycle',n:'System architecture and lifecycle',sec:'Succession and lifecycle plan'},
+ {k:'perennial',n:'High-value perennial integration',sec:'Perennial integration with the existing operation'},
+ {k:'soil',n:'Soil and carbon',sec:'Soil building and nutrient cycling'},
+ {k:'water',n:'Water resilience',sec:'Water: contour rows and drainage'},
+ {k:'micro',n:'Microclimate buffering',sec:'Wind and frost protection'},
+ {k:'habitat',n:'Habitat and pest structuring',sec:'Habitat and pest structuring'},
+ {k:'cert',n:'Certification readiness',sec:'Records for certification'},
+ {k:'transition',n:'Monoculture transition',sec:'Transition from the existing orchard or vineyard'},
+ {k:'nutrient',n:'Nutrient cycling and closed loop',sec:'Closed-loop inputs from prunings'},
+ {k:'climate',n:'Climate adaptation',sec:'Drought, heat and flood resilience'},
+ {k:'remediation',n:'Site remediation',sec:'Soil-first staging on marginal ground'},
+ {k:'wildlife',n:'Wildlife and deer',sec:'Mast and cover for wildlife'},
+];
+const STEPS=[['consult','Planting consult (free, 30 min)',0],['strategy','Strategy session, in person (2 h min + travel)',200],['plan','Whole-property plan (from, fixed after visit)',800],['workbook','Implementation workbook (from)',2000],['install','Design and install (bid)',0],['steward','Stewardship year',0]];
+// st = stratum, stage = succession stage, role anchor or companion. Tolerances: wet, poor, shade. nfix = nitrogen fixer.
+const PLANTS=[
+ {id:'chestnut',n:'Chinese chestnut',st:'emergent',stage:'abundance',role:'anchor',z:[4,8],fc:3,wet:false,poor:true,shade:false,min:2,pri:1,wild:3,nfix:false,price:28},
+ {id:'persimmon',n:'American persimmon',st:'high',stage:'abundance',role:'anchor',z:[4,9],fc:4,wet:true,poor:true,shade:false,min:1,pri:2,wild:3,nfix:false,price:26},
+ {id:'apple',n:'Apple, disease resistant',st:'high',stage:'acc2',role:'anchor',z:[4,8],fc:3,wet:false,poor:false,shade:false,min:2,pri:2,wild:3,nfix:false,price:30},
+ {id:'mulberry',n:'Mulberry',st:'high',stage:'acc1',role:'companion',z:[4,8],fc:2,wet:false,poor:true,shade:false,min:1,pri:2,wild:3,nfix:false,price:22},
+ {id:'locust',n:'Black locust',st:'high',stage:'acc1',role:'companion',z:[4,8],fc:1,wet:false,poor:true,shade:false,min:1,pri:3,wild:1,nfix:true,price:12},
+ {id:'hazel',n:'Hybrid hazelnut',st:'low',stage:'acc2',role:'anchor',z:[4,8],fc:2,wet:false,poor:true,shade:true,min:2,pri:1,wild:2,nfix:false,price:18},
+ {id:'pawpaw',n:'Pawpaw',st:'low',stage:'acc2',role:'anchor',z:[5,8],fc:4,wet:true,poor:false,shade:true,min:2,pri:2,wild:1,nfix:false,price:32},
+ {id:'chinquapin',n:'Allegheny chinquapin',st:'low',stage:'acc1',role:'anchor',z:[5,9],fc:2,wet:false,poor:true,shade:true,min:2,pri:2,wild:3,nfix:false,price:20},
+ {id:'jujube',n:'Jujube',st:'low',stage:'acc1',role:'anchor',z:[6,9],fc:2,wet:false,poor:true,shade:false,min:1,pri:3,wild:1,nfix:false,price:34},
+ {id:'serviceberry',n:'Serviceberry',st:'low',stage:'acc1',role:'companion',z:[3,7],fc:2,wet:false,poor:true,shade:true,min:1,pri:3,wild:3,nfix:false,price:20},
+ {id:'elderberry',n:'Elderberry',st:'shrub',stage:'placenta',role:'companion',z:[3,8],fc:1,wet:true,poor:false,shade:true,min:2,pri:2,wild:2,nfix:false,price:14},
+ {id:'seaberry',n:'Seaberry',st:'shrub',stage:'placenta',role:'companion',z:[3,7],fc:2,wet:false,poor:true,shade:false,min:2,pri:3,wild:1,nfix:true,price:18},
+ {id:'fig',n:'Fig, Chicago Hardy',st:'shrub',stage:'acc1',role:'companion',z:[7,10],fc:1,wet:false,poor:false,shade:false,min:1,pri:2,wild:0,nfix:false,price:24},
+ {id:'aronia',n:'Aronia',st:'shrub',stage:'acc1',role:'companion',z:[3,8],fc:2,wet:true,poor:true,shade:true,min:1,pri:3,wild:2,nfix:false,price:14},
+ {id:'comfrey',n:'Comfrey, Bocking 14',st:'herb',stage:'placenta',role:'companion',z:[3,9],fc:1,wet:true,poor:true,shade:true,min:1,pri:1,wild:0,nfix:false,price:8},
+ {id:'clover',n:'White clover, seed',st:'ground',stage:'placenta',role:'companion',z:[3,9],fc:1,wet:false,poor:true,shade:true,min:1,pri:2,wild:2,nfix:true,price:6},
+ {id:'sunchoke',n:'Sunchoke',st:'root',stage:'placenta',role:'companion',z:[3,9],fc:1,wet:false,poor:true,shade:false,min:1,pri:3,wild:2,nfix:false,price:9},
+ {id:'groundnut',n:'Groundnut, Apios',st:'root',stage:'placenta',role:'companion',z:[4,9],fc:2,wet:true,poor:false,shade:true,min:1,pri:3,wild:1,nfix:true,price:11},
+ {id:'winecap',n:'Wine cap spawn',st:'fungal',stage:'placenta',role:'anchor',z:[3,9],fc:1,wet:true,poor:true,shade:true,min:1,pri:1,wild:0,nfix:false,price:24,sub:'wood chips'},
+ {id:'shiitake',n:'Shiitake plug spawn',st:'fungal',stage:'acc1',role:'companion',z:[4,8],fc:1,wet:false,poor:true,shade:true,min:1,pri:2,wild:0,nfix:false,price:18,sub:'oak or maple logs from prunings'},
+ {id:'oyster',n:'Oyster spawn',st:'fungal',stage:'placenta',role:'companion',z:[3,9],fc:1,wet:true,poor:true,shade:true,min:1,pri:2,wild:0,nfix:false,price:18,sub:'fresh hardwood logs'},
+];
+const BY=Object.fromEntries(PLANTS.map(p=>[p.id,p]));
+const ZIPS=[[70,89,'NJ','7a'],[100,119,'NY','7a'],[120,149,'NY','6a'],[150,196,'PA','6b'],[197,199,'DE','7b'],[206,219,'MD','7a'],[220,246,'VA','7a'],[247,254,'WV','6b'],[255,257,'WV','7a'],[258,259,'WV','6a'],[260,266,'WV','6b'],[267,268,'WV','6a'],[270,289,'NC','7b'],[290,299,'SC','8a'],[300,319,'GA','8a'],[370,385,'TN','7a'],[400,427,'KY','6b'],[430,458,'OH','6b'],[460,479,'IN','6a'],[480,499,'MI','6a'],[600,629,'IL','6a']];
+const STATE_NAMES={NJ:'New Jersey',NY:'New York',PA:'Pennsylvania',DE:'Delaware',MD:'Maryland',VA:'Virginia',WV:'West Virginia',NC:'North Carolina',SC:'South Carolina',GA:'Georgia',TN:'Tennessee',KY:'Kentucky',OH:'Ohio',IN:'Indiana',MI:'Michigan',IL:'Illinois'};
+function lookupZip(z){if(!/^\d{5}$/.test(z||''))return null;const p=+z.slice(0,3);const r=ZIPS.find(r=>p>=r[0]&&p<=r[1]);return r?{state:r[2],zone:r[3]}:null}
+
+// ---------- state ----------
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,8);
+const money=n=>'$'+Math.round(n).toLocaleString('en-US');
+let S=load();
+function exampleClient(){
+  return {id:'example',name:'Example: Hollow Run',zip:'25301',acres:12,step:'plan',hands:'stake',goals:'Nuts and fruit for the family, shade for the cattle on the back pasture, and stop the creek bank from washing. Low input.',have:'Open pasture, a creek with a bare bank, a half acre of lawn by the house, a woodlot on the north line.',modules:['lifecycle','soil','water'],areas:[
+    {id:'a1',name:'Back pasture',practice:'silvo',acres:8,wet:false,poor:true,shade:false,aspect:'S'},
+    {id:'a2',name:'Creek edge',practice:'riparian',acres:1,wet:true,poor:false,shade:true,aspect:'E'},
+    {id:'a3',name:'By the house',practice:'food',acres:0.5,wet:false,poor:false,shade:false,aspect:'S'}],
+    site:{pulled:[],walk:{}},plan:null,stage:'intake',signals:[],bundle:null,archived:false,example:true};
+}
+function fresh(){return {clients:[exampleClient()],open:'example',view:'pipeline',tab:'intake',area:null,cell:null}}
+function load(){try{const r=localStorage.getItem('consult-flow-v1');if(r){const o=JSON.parse(r);if(o&&o.clients)return o}}catch(e){}return fresh()}
+function save(){try{localStorage.setItem('consult-flow-v1',JSON.stringify(S))}catch(e){}}
+const cur=()=>S.clients.find(c=>c.id===S.open);
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('on'),1800)}
+
+// ---------- engine ----------
+function zoneOf(c){const h=lookupZip(c.zip);return h?parseInt(h.zone):6}
+function eligible(p,area,zone){
+  const pr=PRACTICES[area.practice];if(!pr.strata.includes(p.st))return false;
+  if(zone<p.z[0]-1||zone>p.z[1]+1)return false;
+  if(area.wet&&!p.wet)return false;if(area.poor&&!p.poor)return false;
+  const shade=area.shade||area.practice==='forest'||area.practice==='myco';if(shade&&!p.shade)return false;
+  return true;
+}
+function score(p,c,area,zone){
+  let s=100-2*p.pri-1.5*p.fc;const marginal=zone<p.z[0]||zone>p.z[1];if(marginal)s-=40;
+  if(p.nfix)s+=10;if(c.modules.includes('soil')&&p.nfix)s+=10;if(c.modules.includes('water')&&area.wet&&p.wet)s+=5;
+  if(c.modules.includes('wildlife'))s+=4*p.wild;if(area.aspect==='N'&&p.z[0]>=zone)s-=10;
+  return {s:Math.round(s*10)/10,marginal};
+}
+function whyText(p,c,area,zone){const r=score(p,c,area,zone);const bits=[`zone ${zone} ${r.marginal?'marginal':'safe'}`,area.wet?'wet tolerant':'drained ground',`${STRATA.find(s=>s.k===p.st).n.toLowerCase()} ${p.role}`,`${STAGES.find(s=>s.k===p.stage).n.toLowerCase()} stage`,`priority ${p.pri}`,`first crop ${p.fc} yr`];if(p.nfix)bits.push('fixes nitrogen');if(p.min>1)bits.push(`${p.min} to pollinate`);if(c.modules.includes('wildlife'))bits.push(`wildlife ${p.wild}`);return bits.join(' · ')+` · score ${r.s}`}
+function draftConsortium(c,area){
+  const zone=zoneOf(c),pr=PRACTICES[area.practice],cells={};
+  for(const st of STRATA){if(!pr.strata.includes(st.k))continue;for(const stg of st.stages){const cands=PLANTS.filter(p=>p.st===st.k&&p.stage===stg&&eligible(p,area,zone)).map(p=>({p,s:score(p,c,area,zone).s})).sort((a,b)=>b.s-a.s);cells[st.k+'|'+stg]=cands.length?cands[0].p.id:null}}
+  return cells;
+}
+function geometry(area){const m2=area.acres*4047,side=Math.sqrt(m2),pr=PRACTICES[area.practice];const rows=Math.max(1,Math.floor(side/pr.rowSp));return {side:Math.round(side),rows,len:Math.round(side),stems:Math.floor(side/pr.inRow)}}
+function rowPicks(area,cells){
+  const g=geometry(area),picks=Object.values(cells).filter(Boolean).map(id=>BY[id]);
+  const woody=picks.filter(p=>STRATA.find(s=>s.k===p.st).w>0);const sumW=woody.reduce((a,p)=>a+STRATA.find(s=>s.k===p.st).w,0)||1;
+  return picks.map(p=>{const w=STRATA.find(s=>s.k===p.st).w;let qty,unit='plants';
+    if(w>0)qty=Math.max(p.min,Math.round(g.stems*w/sumW));
+    else if(p.st==='fungal'){qty=1;unit=p.id==='winecap'?'bag per row':'plug set per row'}
+    else if(p.st==='ground'){qty=Math.max(1,Math.ceil(g.len*PRACTICES[area.practice].rowSp/400));unit='lb seed'}
+    else qty=Math.ceil(g.len/3);
+    return {id:p.id,qty,unit,woody:w>0}});
+}
+function draftPlan(c){
+  const areas={};for(const a of c.areas){const cells=draftConsortium(c,a);const g=geometry(a);const rows=[];for(let i=1;i<=g.rows;i++)rows.push({id:a.id+'-'+i,n:i,len:g.len,planted:false,actual:null,subs:[]});areas[a.id]={cells,rows}}
+  const plan={version:(c.plan?c.plan.version:0)+1,areas,sections:[],approved:false,quoteSent:false};
+  plan.sections=buildSections(c,plan);
+  if(c.plan){for(const s of plan.sections){const old=c.plan.sections.find(o=>o.key===s.key);if(old&&old.status!=='generated'){s.text=old.text;s.status=old.status;s.by=old.by}}}
+  return plan;
+}
+function totals(c,plan){
+  let stems=0,points=0,cost=0,rowsN=0,first=99,nfixStems=0;const byStratum={};
+  for(const a of c.areas){const pa=plan.areas[a.id];if(!pa)continue;const picks=rowPicks(a,pa.cells);rowsN+=pa.rows.length;for(const pk of picks){const p=BY[pk.id];const q=pk.qty*pa.rows.length;cost+=q*p.price;if(pk.woody){stems+=q;points+=q;byStratum[p.st]=(byStratum[p.st]||0)+q;if(p.nfix)nfixStems+=q;if(p.fc<first)first=p.fc}}}
+  return {stems,points,cost,rows:rowsN,first:first===99?0:first,nfixShare:stems?Math.round(100*nfixStems/stems):0,byStratum};
+}
+function infraLines(c,plan){
+  const lines=[];for(const a of c.areas){const pa=plan.areas[a.id];if(!pa)continue;const g=geometry(a),picks=rowPicks(a,pa.cells),stems=picks.filter(p=>p.woody).reduce((s,p)=>s+p.qty,0)*pa.rows.length,rowM=g.len*pa.rows.length,perim=4*g.side;
+    for(const k of PRACTICES[a.practice].infra){const [n,u,rate]=INFRA[k];const q=u==='stem'?stems:u==='m'?(k==='deerfence'||k==='paddock'||k==='exclusion'?perim:rowM):u==='row'?pa.rows.length:1;lines.push({area:a.name,n,q,u,rate,cost:q*rate})}
+    lines.push({area:a.name,n:'Planting labor',q:Math.round(stems*0.12*10)/10,u:'h',rate:55,cost:stems*0.12*55})}
+  return lines;
+}
+function buildSections(c,plan){
+  const t=totals(c,plan),zone=zoneOf(c),hit=lookupZip(c.zip),secs=[];
+  const areaLines=c.areas.map(a=>`${a.name}: ${PRACTICES[a.practice].n}, ${a.acres} acres, ${plan.areas[a.id].rows.length} rows of ${geometry(a).len} m${a.wet?', wet ground':''}${a.poor?', poor soil':''}${a.shade?', shade':''}.`).join('\n');
+  secs.push({key:'goals',title:'Goals and constraints',text:`In the client's words: ${c.goals||'[goals]'}\n\nWhat is already there: ${c.have||'[existing features]'}\n\nHow hands-on: ${c.hands==='we'?'we install':c.hands==='stake'?'they install, we stake and guide':'plan only'}. Service step: ${STEPS.find(s=>s[0]===c.step)[1]}.`});
+  secs.push({key:'site',title:'Site facts and watershed',text:`ZIP ${c.zip}, zone ${hit?hit.zone:zone}${hit?', '+STATE_NAMES[hit.state]:''}. ${c.acres} acres in ${c.areas.length} areas.\n${areaLines}\nContours, drainage classes and aspect from the site model; frost pockets and the creek flood line confirmed on the walk.`});
+  secs.push({key:'species',title:'Species selection by area',text:c.areas.map(a=>{const pa=plan.areas[a.id];const picks=rowPicks(a,pa.cells);return `${a.name} (${PRACTICES[a.practice].n}): `+picks.map(pk=>`${BY[pk.id].n} ×${pk.qty} per row`).join(', ')}).join('\n')});
+  secs.push({key:'layout',title:'Ready-to-plant layout: rows, counts, planting points',text:`${t.rows} rows across ${c.areas.length} areas, ${t.stems} woody stems, ${t.points} planting points at row spacing by practice. Rows follow contour; planting order puts the wet rows and the protection-dependent rows first. Points export for RTK or a handheld.`});
+  secs.push({key:'access',title:'Access, fences, water and buildings at concept level',text:c.areas.map(a=>`${a.name}: ${PRACTICES[a.practice].infra.map(k=>INFRA[k][0]).join(', ')}.`).join('\n')+`\nHeadlands and equipment paths kept between rows where the practice needs them.`});
+  for(const m of MODULES){if(!c.modules.includes(m.k))continue;let body='';
+    if(m.k==='lifecycle')body=`Years 0 to 2: ground cover, herbaceous layer and nitrogen fixers establish and feed the soil (${t.nfixShare}% of stems fix nitrogen). Years 2 to 6: shrubs and the fast low canopy produce first harvests (first crop in year ${t.first}). Years 6 to 15: the low canopy fills and the high canopy closes. Year 15 on: the anchors carry the system; prunings become mulch and mushroom logs.`;
+    if(m.k==='soil')body=`Deep-rooted anchors and fibrous understory by row. Chop-and-drop from the placenta and accumulation layers every spring and midsummer. Leaf drop and root pruning cycle nutrients; comfrey and clover feed the woody layers. Nitrogen fixers are ${t.nfixShare}% of stems.`;
+    if(m.k==='water')body=`Rows on contour slow runoff and hold moisture. ${c.areas.filter(a=>a.wet).map(a=>a.name).join(', ')||'No area'} planted with wet-tolerant species only. Shading from the high canopy cuts evaporation in the alleys by the accumulation stage.`;
+    if(m.k==='micro')body=`Windbreak rows staggered across the prevailing wind. Frost pockets excluded from early bloomers.`;
+    if(m.k==='habitat')body=`Flowering shrubs and insectary borders at row ends. Timing diversity across the strata breaks pest cycles.`;
+    if(m.k==='cert')body=`Buffer zones mapped. Input and activity records kept as farmOS logs from the install onward, exported with the bundle for the audit file.`;
+    if(m.k==='transition')body=`Understory and inter-row species introduced in phases so the existing crop keeps producing through the transition years.`;
+    if(m.k==='nutrient')body=`Prunings from the high canopy become chips for the wine cap beds and logs for shiitake. The system supplies its own mulch by year 4.`;
+    if(m.k==='climate')body=`Species chosen for the zone's drought, heat and flood risk; placement minimises infrastructure.`;
+    if(m.k==='remediation')body=`Pioneer consortia first; production species staged after soil cover is established.`;
+    if(m.k==='wildlife')body=`Mast timing spread from early summer to late fall; cover rows and water access included.`;
+    secs.push({key:'mod-'+m.k,title:m.sec,text:body})}
+  secs.push({key:'financials',title:'Planning-level financials, three-stage cashflow',text:`Establishment: plants ${money(t.cost)} plus infrastructure and labor on the quote. Years 0 to 2: cover and fixers, little revenue. Years 2 to 6: shrubs and fast canopy. Year 7 on: nuts and long-lived fruit. These are starting points for the client's own budget, not a forecast.`});
+  secs.push({key:'implementation',title:'Implementation plan, in order',text:`1. Stake rows and points. 2. Site prep: ${c.areas.some(a=>a.practice==='silvo')?'paddock fence and stock water, ':''}deer protection, drip. 3. Plant the wet rows first, then anchors, then companions. 4. Chips and spawn under the understory. 5. First chop-and-drop in June.`});
+  secs.push({key:'calendar',title:'Stewardship calendar, year one',text:`Spring prune of the placenta layer, June and August chop-and-drop, shiitake inoculation after the first hard prune, harvest windows by species, and the yearly health walk in October where trial measurements are taken.`});
+  return secs.map(s=>Object.assign({status:'generated',by:''},s));
+}
+function stageOf(c){if(c.archived)return 'archived';if(!c.plan)return c.site.pulled.length?'site':'intake';if(!c.plan.approved)return 'design';if(!c.plan.quoteSent)return 'quote';const rows=Object.values(c.plan.areas).flatMap(a=>a.rows);if(rows.some(r=>!r.planted))return 'install';return c.step==='steward'?'stewardship':'handover'}
+const STAGE_N={intake:'Intake',site:'Site',design:'Design',quote:'Quote',install:'Install',handover:'Handover',stewardship:'Stewardship',archived:'Archived'};
+
+// ---------- render ----------
+function render(){renderNav();const m=$('#main');if(S.view==='pipeline'){m.innerHTML=pipeline();return}const c=cur();if(!c){S.view='pipeline';render();return}
+  m.innerHTML=clientHead(c)+({intake:intake,site:site,design:design,install:install,handover:handover}[S.tab]||intake)(c);save()}
+function renderNav(){$('#nav').innerHTML=`<button type="button" data-view="pipeline" ${S.view==='pipeline'?'aria-current="page"':''}>Pipeline</button><button type="button" data-view="client" ${S.view==='client'?'aria-current="page"':''}>${cur()?esc(cur().name):'Client'}</button>`}
+function pipeline(){
+  const rows=S.clients.map(c=>{const st=stageOf(c);const next={intake:'Pick modules and areas, pull the site',site:'Walk the site, then draft the plan',design:'Edit the generated sections, approve',quote:'Send the quote and plan PDF',install:'Plant the remaining rows',handover:'Build the bundle, archive',stewardship:'Next visit on the calendar',archived:'Nothing'}[st];
+    return `<tr><td><button class="btn quiet" type="button" data-open="${c.id}" style="font-weight:600;padding:0">${esc(c.name)}</button><div class="muted">ZIP ${esc(c.zip)}${c.example?' · example data':''}</div></td><td><span class="badge${st==='archived'?' ghost':''}">${STAGE_N[st]}</span></td><td>${c.areas.map(a=>PRACTICES[a.practice].n).join(' · ')||'<span class="muted">none yet</span>'}</td><td class="num">${c.acres}</td><td class="num">${zoneOf(c)}</td><td>${STEPS.find(s=>s[0]===c.step)[1].split(' (')[0]}</td><td>${next}</td></tr>`}).join('');
+  const consultLeads=S.clients.filter(c=>stageOf(c)==='intake').length,toEdit=S.clients.filter(c=>c.plan&&!c.plan.approved).length,toPlant=S.clients.filter(c=>stageOf(c)==='install').length;
+  return `<div class="client-head"><h1>Clients by stage</h1><span class="muted">Mirrors the Odoo CRM pipeline. Stage is computed from what has been recorded.</span><button class="btn primary" id="newclient" type="button" style="margin-left:auto">New client</button></div>
+  <div class="card" style="margin-top:14px"><div class="scroll"><table><thead><tr><th>Client</th><th>Stage</th><th>Practices by area</th><th class="num">Acres</th><th class="num">Zone</th><th>Service step</th><th>Next action</th></tr></thead><tbody>${rows}</tbody></table></div></div>
+  <div class="f3" style="margin-top:14px"><div class="card"><label>This week</label>${toEdit} plan${toEdit===1?'':'s'} awaiting edits · ${toPlant} install${toPlant===1?'':'s'} in progress</div><div class="card"><label>From the retail planner</label>${consultLeads} lead${consultLeads===1?'':'s'} at intake</div><div class="card"><label>Research</label>Trial measurements are taken on stewardship visits. Three trials registered in the draft.</div></div>`;
+}
+function clientHead(c){const st=stageOf(c);const order=['intake','site','design','install','handover'];const doneIdx={intake:0,site:1,design:2,quote:3,install:3,handover:4,stewardship:4,archived:5}[st];
+  return `<div class="client-head"><h1>${esc(c.name)}</h1><span class="muted">zone ${zoneOf(c)} · ${c.acres} acres · ${c.areas.length} area${c.areas.length===1?'':'s'} · <span class="badge">${STAGE_N[st]}</span>${c.plan?` · plan v${c.plan.version}`:''}</span></div>
+  <div class="tabs">${order.map((k,i)=>`<button type="button" data-tab="${k}" class="${i<doneIdx?'done':''}" ${S.tab===k?'aria-current="page"':''}><span class="n">${i+1}</span>${STAGE_N[k]}</button>`).join('')}</div>`}
+function intake(c){
+  const hit=lookupZip(c.zip);
+  return `<div class="cols"><div class="stack">
+    <div class="card"><h2>Client and land</h2><div class="f2">
+      <div><label for="f-name">Client</label><input id="f-name" data-f="name" value="${esc(c.name)}"></div>
+      <div><label for="f-zip">ZIP</label><input id="f-zip" data-f="zip" inputmode="numeric" maxlength="5" value="${esc(c.zip)}"><div class="muted">${hit?`Zone ${hit.zone}, ${STATE_NAMES[hit.state]}`:'Unknown ZIP, zone 6 assumed'}</div></div>
+      <div><label for="f-acres">Acres, whole property</label><input id="f-acres" data-f="acres" type="number" min="0" step="0.5" value="${c.acres}"></div>
+      <div><label for="f-step">Service step</label><select id="f-step" data-f="step">${STEPS.map(s=>`<option value="${s[0]}"${c.step===s[0]?' selected':''}>${s[1]}${s[2]?' · '+money(s[2])+' ref':''}</option>`).join('')}</select></div>
+      <div><label for="f-hands">How hands-on</label><select id="f-hands" data-f="hands"><option value="we"${c.hands==='we'?' selected':''}>We install it</option><option value="stake"${c.hands==='stake'?' selected':''}>They install, we stake and guide</option><option value="plan"${c.hands==='plan'?' selected':''}>Plan only</option></select></div>
+      <div><label>Travel estimate</label><div class="mono" style="padding-top:6px">${hit&&hit.state==='WV'?'under 1 h outbound, unbilled':'[drive time from parcel] h · $100/h beyond the first'}</div></div>
+    </div>
+    <div style="margin-top:10px"><label for="f-goals">Goals in the client's words</label><textarea id="f-goals" data-f="goals">${esc(c.goals)}</textarea></div>
+    <div style="margin-top:10px"><label for="f-have">What they already have</label><input id="f-have" data-f="have" value="${esc(c.have)}"></div></div>
+    <div class="card"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0">Areas and practices</h2><span class="muted">One practice per area. The generator needs at least one.</span><button class="btn small" id="addarea" type="button" style="margin-left:auto">Add area</button></div>
+      <div class="scroll" style="margin-top:8px"><table><thead><tr><th>Area</th><th>Practice</th><th class="num">Acres</th><th>Site</th><th>Aspect</th><th></th></tr></thead><tbody>${c.areas.map(a=>`<tr>
+        <td><input aria-label="Area name" data-a="${a.id}" data-k="name" value="${esc(a.name)}"></td>
+        <td><select aria-label="Practice" data-a="${a.id}" data-k="practice">${Object.entries(PRACTICES).map(([k,p])=>`<option value="${k}"${a.practice===k?' selected':''}>${p.n}</option>`).join('')}</select><div class="muted">${PRACTICES[a.practice].needs}</div></td>
+        <td><input aria-label="Acres" type="number" min="0.1" step="0.1" data-a="${a.id}" data-k="acres" value="${a.acres}" style="width:80px"></td>
+        <td><div class="chips"><button class="chip" type="button" data-a="${a.id}" data-t="wet" aria-pressed="${a.wet}">Wet</button><button class="chip" type="button" data-a="${a.id}" data-t="poor" aria-pressed="${a.poor}">Poor soil</button><button class="chip" type="button" data-a="${a.id}" data-t="shade" aria-pressed="${a.shade}">Shade</button></div></td>
+        <td><select aria-label="Aspect" data-a="${a.id}" data-k="aspect">${['S','E','W','N','flat'].map(x=>`<option${a.aspect===x?' selected':''}>${x}</option>`).join('')}</select></td>
+        <td><button class="btn quiet small" type="button" data-del="${a.id}">Remove</button></td></tr>`).join('')||'<tr><td colspan="6" class="muted">No areas yet.</td></tr>'}</tbody></table></div></div>
+  </div><div class="stack">
+    <div class="card"><h2>Goal modules</h2><span class="muted">What the client wants. Each module adds sections and rules to the generated plan.</span><div class="chips" style="margin-top:8px">${MODULES.map(m=>`<button class="chip" type="button" data-mod="${m.k}" aria-pressed="${c.modules.includes(m.k)}">${m.n}</button>`).join('')}</div></div>
+    <div class="card"><h2>What this stage records</h2><div class="muted">Odoo opportunity at stage Intake with the service product. farmOS property with the parcel. QGIS project from the template. Areas become land assets once drawn on the Site tab.</div><div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="button" data-go="site" ${c.areas.length?'':'disabled'}>Save and go to Site</button></div></div>
+  </div></div>`;
+}
+function siteMap(c,selArea,withRows){
+  const W=640,H=300,pad=10;const tot=c.areas.reduce((s,a)=>s+Math.sqrt(a.acres),0)||1;let x=pad;const parts=[];
+  for(const a of c.areas){const w=Math.max(60,(W-2*pad-(c.areas.length-1)*8)*Math.sqrt(a.acres)/tot);const h=H-2*pad;const sel=a.id===selArea;
+    let rows='';if(withRows&&c.plan&&c.plan.areas[a.id]){const pa=c.plan.areas[a.id];const n=pa.rows.length;const sp=h/(n+1);for(let i=1;i<=n;i++){const y=pad+sp*i;const r=pa.rows[i-1];rows+=`<line x1="${x+8}" y1="${y.toFixed(1)}" x2="${(x+w-8).toFixed(1)}" y2="${(y-6).toFixed(1)}" stroke="${r.planted?'var(--moss)':'var(--ink-2)'}" stroke-width="${sel?2:1}" stroke-dasharray="${r.planted?'':'4 3'}"/>`;
+      if(sel&&n<=14){const pts=Math.min(12,Math.floor((w-16)/14));for(let k=0;k<pts;k++){const px=x+8+(w-16)*k/(pts-1||1);rows+=`<circle cx="${px.toFixed(1)}" cy="${(y-6*k/(pts-1||1)).toFixed(1)}" r="1.8" fill="var(--green)"/>`}}}}
+    parts.push(`<g><rect x="${x}" y="${pad}" width="${w.toFixed(1)}" height="${h}" rx="6" fill="${a.wet?'var(--blue-soft)':'var(--green-soft)'}" stroke="${sel?'var(--moss)':'var(--line)'}" stroke-width="${sel?2:1}"/>${rows}<text x="${x+8}" y="${pad+18}" font-size="12" fill="var(--ink)" font-family="IBM Plex Mono, monospace">${esc(a.name)}</text><text x="${x+8}" y="${pad+34}" font-size="11" fill="var(--ink-2)" font-family="IBM Plex Mono, monospace">${PRACTICES[a.practice].n} · ${a.acres} ac</text></g>`);x+=w+8}
+  return `<svg class="map" viewBox="0 0 ${W} ${H}" role="img" aria-label="Schematic map of the areas${withRows?' with rows':''}">${parts.join('')}</svg>`;
+}
+function site(c){
+  const layers=['Parcel','Elevation and contours','Soils and drainage','Imagery and canopy'];const walk=['Creek flood line confirmed','Soil pit in the back pasture','Canopy density under the woodlot','Stock water located','Frost pockets flagged'];
+  return `<div class="cols"><div class="stack">
+    <div class="card"><div class="chips" style="margin-bottom:10px">${layers.map(l=>`<button class="chip" type="button" data-pull="${l}" aria-pressed="${c.site.pulled.includes(l)}">${c.site.pulled.includes(l)?'Pulled: ':'Pull '}${l}</button>`).join('')}</div>${siteMap(c,S.area,false)}<div class="muted" style="margin-top:6px">Schematic: areas sized by acreage. The real map is the PostGIS mirror with the DEM, drainage classes and the walk's points. Blue areas are wet ground.</div></div>
+    <div class="card"><h2>Site facts</h2><div class="kv">${c.areas.map(a=>`<span>${esc(a.name)}</span><span class="v">${a.acres} ac · ${a.aspect} · ${[a.wet?'wet':'drained',a.poor?'poor':'fair soil',a.shade?'shade':'sun'].join(', ')}</span>`).join('')}<span>Zone</span><span class="v">${zoneOf(c)}</span><span>Layers pulled</span><span class="v">${c.site.pulled.length} of 4</span></div></div>
+  </div><div class="stack">
+    <div class="card"><h2>Still needs a walk</h2>${walk.map(w=>`<label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:14px;color:var(--ink);margin:4px 0"><input type="checkbox" style="width:auto" data-walk="${esc(w)}" ${c.site.walk[w]?'checked':''}>${w}</label>`).join('')}<div class="muted" style="margin-top:8px">Each check is a farmOS land asset or observation dropped from the phone on the walk.</div></div>
+    <div class="card"><h2>Deliverable</h2><div class="muted">Site brief, one page: zone, soils, water, slope, what can grow here. Generated from the facts above.</div><div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="button" id="draft" ${c.areas.length?'':'disabled'}>${c.plan?'Re-draft plan from goals':'Draft plan from goals'}</button><span class="muted" style="align-self:center">${c.site.pulled.length<4?'Pull all four layers first for a full site model; drafting works without them.':''}</span></div></div>
+  </div></div>`;
+}
+function design(c){
+  if(!c.plan)return `<div class="card">No plan yet. <button class="btn primary" type="button" id="draft">Draft plan from goals</button></div>`;
+  const area=c.areas.find(a=>a.id===S.area)||c.areas[0];S.area=area.id;const pa=c.plan.areas[area.id];const zone=zoneOf(c),pr=PRACTICES[area.practice],g=geometry(area),picks=rowPicks(area,pa.cells),t=totals(c,c.plan);
+  const grid=`<table class="grid"><thead><tr><th style="width:112px">Stratum</th>${STAGES.map(s=>`<th>${s.n}<br><span style="font-weight:400;text-transform:none;letter-spacing:0">${s.y}</span></th>`).join('')}</tr></thead><tbody>${STRATA.map(st=>`<tr><td style="font-size:12px;font-weight:600">${st.n}</td>${STAGES.map(sg=>{const key=st.k+'|'+sg.k;if(!pr.strata.includes(st.k)||!st.stages.includes(sg.k))return '<td class="na"></td>';const id=pa.cells[key];const sel=S.cell===key;return `<td class="${id?'pick':'gap'}${sel?' sel':''}"><button type="button" data-cell="${key}">${id?esc(BY[id].n):'gap'}</button></td>`}).join('')}</tr>`).join('')}</tbody></table>`;
+  let why='';if(S.cell&&pa.cells.hasOwnProperty(S.cell)){const [st,sg]=S.cell.split('|');const id=pa.cells[S.cell];const cands=PLANTS.filter(p=>p.st===st&&p.stage===sg&&eligible(p,area,zone)&&p.id!==id).map(p=>({p,s:score(p,c,area,zone).s})).sort((a,b)=>b.s-a.s);
+    why=`<div style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px;font-size:13px"><strong>${id?'Why '+esc(BY[id].n)+' here':'Why this cell is a gap'}</strong><div class="muted">${id?whyText(BY[id],c,area,zone):'Nothing we carry fits this stratum and stage on this site. A gap is a suggestion to the catalog.'}</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${cands.slice(0,4).map(x=>`<button class="btn small" type="button" data-swap="${x.p.id}">${id?'Swap for':'Fill with'} ${esc(x.p.n)} (${x.s})</button>`).join('')}${id?`<button class="btn small quiet" type="button" data-clear="1">Remove</button>`:''}</div></div>`}
+  const gen=c.plan.sections.filter(s=>s.status==='generated').length;
+  return `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px"><button class="btn" type="button" id="draft">Re-draft from goals</button><span class="muted">Keeps edited sections, refreshes figures.</span><span class="muted" style="margin-left:auto">Area:</span><div class="chips">${c.areas.map(a=>`<button class="chip" type="button" data-area="${a.id}" aria-pressed="${a.id===area.id}">${esc(a.name)} · ${PRACTICES[a.practice].n.split(' ')[0].toLowerCase()}</button>`).join('')}</div></div>
+  <div class="cols"><div class="stack">
+    <div class="card">${siteMap(c,area.id,true)}<div class="rows" style="margin-top:10px"><div class="r h"><span>Row</span><span>Length</span><span>Spacing</span><span>Stems</span><span>Consortium</span></div>${pa.rows.map(r=>`<div class="r"><span>${r.n} · contour${area.wet?', wet':''}${r.planted?' · planted':''}</span><span class="mono">${r.len} m</span><span class="mono">${pr.inRow} m</span><span class="mono">${picks.filter(p=>p.woody).reduce((s,p)=>s+p.qty,0)}</span><span class="muted">${esc(area.name)} consortium, zone ${zone}</span></div>`).join('')}</div><div class="muted" style="margin-top:8px">${pa.rows.length} rows at ${pr.rowSp} m row spacing from ${area.acres} acres. Planting points: one per woody stem at ${pr.inRow} m. Every row in an area shares its consortium in this prototype.</div></div>
+    <div class="card"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0">Plan sections</h2><span class="muted">${gen} generated, ${c.plan.sections.length-gen} edited or approved. Every section needs a named person before the plan can be approved.</span></div>
+      <div class="stack" style="margin-top:10px;gap:10px">${c.plan.sections.map(s=>`<div class="sec"><div class="h"><strong>${esc(s.title)}</strong><span class="badge ${s.status==='generated'?'gen':s.status==='edited'?'ed':''}">${s.status}${s.by?' · '+esc(s.by):''}</span><button class="btn small" type="button" data-approve="${s.key}" ${s.status==='approved'?'disabled':''}>Approve</button></div><textarea data-sec="${s.key}" aria-label="${esc(s.title)}">${esc(s.text)}</textarea></div>`).join('')}</div></div>
+  </div><div class="stack">
+    <div class="card"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0">Consortium, ${esc(area.name)}</h2><span class="muted">${pr.n}</span></div><div class="scroll" style="margin-top:8px">${grid}</div><div class="muted" style="margin-top:6px">Amber cells are gaps the catalog cannot fill on this site. Click a cell for the reasons and the alternatives.${area.practice==='silvo'?' Silvopasture hides the shrub layer until stems are protected.':''}</div>${why}</div>
+    <div class="card"><h2>Whole site</h2><div class="kv"><span>Rows</span><span class="v">${t.rows}</span><span>Woody stems, planting points</span><span class="v">${t.stems}</span><span>Nitrogen fixers</span><span class="v">${t.nfixShare}% of stems</span><span>First harvest</span><span class="v">year ${t.first}</span>${STRATA.filter(s=>t.byStratum[s.k]).map(s=>`<span style="color:var(--ink-2)">${s.n}</span><span class="v">${t.byStratum[s.k]}</span>`).join('')}</div>
+      <div class="kv" style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><span>Plants and spawn</span><span class="v">${money(t.cost)}</span><span>Infrastructure and labor (placeholder rates)</span><span class="v">${money(infraLines(c,c.plan).reduce((s,l)=>s+l.cost,0))}</span><span>${esc(STEPS.find(s=>s[0]===c.step)[1].split(' (')[0])}</span><span class="v">${money(STEPS.find(s=>s[0]===c.step)[2])}</span><span style="font-weight:600">Quote to Odoo</span><span class="v" style="font-weight:600">${money(t.cost+infraLines(c,c.plan).reduce((s,l)=>s+l.cost,0)+STEPS.find(s=>s[0]===c.step)[2])}</span></div>
+      <details style="margin-top:8px"><summary class="muted" style="cursor:pointer">Infrastructure lines by area</summary><div class="scroll"><table style="margin-top:6px"><thead><tr><th>Area</th><th>Line</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Cost</th></tr></thead><tbody>${infraLines(c,c.plan).map(l=>`<tr><td>${esc(l.area)}</td><td>${l.n}</td><td class="num">${l.q} ${l.u}</td><td class="num">${money(l.rate)}</td><td class="num">${money(l.cost)}</td></tr>`).join('')}</tbody></table></div></details>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn" type="button" id="approveplan" ${gen||c.plan.approved?'disabled':''}>${c.plan.approved?'Plan v'+c.plan.version+' approved':'Approve plan v'+c.plan.version}</button><button class="btn primary" type="button" id="sendquote" ${c.plan.approved&&!c.plan.quoteSent?'':'disabled'}>${c.plan.quoteSent?'Quote and plan PDF sent':'Send quote and plan PDF'}</button></div>
+      <div class="muted" style="margin-top:6px">${gen?'Approve is locked until every section is edited or approved.':c.plan.quoteSent?'Deliverable sent: plan PDF and the Odoo quotation. Next: Install.':c.plan.approved?'Sending creates the sale.order with the plan JSON attached.':'Plan can be approved.'}</div></div>
+  </div></div>`;
+}
+function install(c){
+  if(!c.plan||!c.plan.quoteSent)return `<div class="card">Install opens once the quote is sent from Design.</div>`;
+  const list=[];for(const a of c.areas){const pa=c.plan.areas[a.id];const picks=rowPicks(a,pa.cells);for(const r of pa.rows)list.push({a,r,picks})}
+  list.sort((x,y)=>(y.a.wet-x.a.wet)||x.a.name.localeCompare(y.a.name)||x.r.n-y.r.n);
+  const done=list.filter(x=>x.r.planted).length;const next=list.find(x=>!x.r.planted);
+  return `<div class="cols"><div class="stack">
+    <div class="card"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0">Rows in planting order</h2><span class="muted">${done} of ${list.length} planted. Wet rows first.</span></div><div class="prog" style="margin:8px 0"><i style="width:${list.length?100*done/list.length:0}%"></i></div>
+      ${list.map(x=>{const on=next&&x.r.id===next.r.id;return `<div style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:8px;${on?'background:var(--green-soft)':''}"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><strong>${esc(x.a.name)} · row ${x.r.n}</strong><span class="muted">${x.r.len} m · ${x.picks.filter(p=>p.woody).reduce((s,p)=>s+p.qty,0)} stems</span><span class="badge ${x.r.planted?'':on?'ed':'ghost'}" style="margin-left:auto">${x.r.planted?'planted':on?'now':'queued'}</span></div>
+        ${on?`<div class="scroll" style="margin-top:8px"><table><thead><tr><th>Pick</th><th class="num">Qty</th><th>Lot</th><th>Substitute</th></tr></thead><tbody>${x.picks.map(pk=>`<tr><td>${esc(BY[pk.id].n)}${x.r.subs.find(s=>s.from===pk.id)?` <span class="badge gen">swapped for ${esc(BY[x.r.subs.find(s=>s.from===pk.id).to].n)}</span>`:''}</td><td class="num">${pk.qty} ${pk.unit}</td><td class="mono">${pk.woody?'scan':'bulk'}</td><td>${pk.woody?`<select aria-label="Substitute" data-subrow="${x.r.id}" data-from="${pk.id}" style="font-size:12px;padding:3px 6px"><option value="">none</option>${PLANTS.filter(p=>p.st===BY[pk.id].st&&p.id!==pk.id).map(p=>`<option value="${p.id}">${esc(p.n)}</option>`).join('')}</select>`:''}</td></tr>`).join('')}</tbody></table></div>
+        <div class="f2" style="margin-top:8px"><div><label for="act-${x.r.id}">Actual stems planted</label><input id="act-${x.r.id}" type="number" min="0" data-actual="${x.r.id}" value="${x.picks.filter(p=>p.woody).reduce((s,p)=>s+p.qty,0)}"></div><div style="display:flex;align-items:flex-end"><button class="btn primary" type="button" data-plant="${x.r.id}" style="width:100%">Mark row planted</button></div></div>`:x.r.planted?`<div class="muted" style="margin-top:4px">${x.r.actual} stems · ${x.r.subs.length} substitution${x.r.subs.length===1?'':'s'}</div>`:''}</div>`}).join('')}</div>
+  </div><div class="stack">
+    <div class="card"><h2>What each row writes</h2><div class="muted">Odoo transfer from the nursery to the client's stock location by lot. farmOS trees with the lot, tenure client, linked to the row. The row flips to planted with its declared count. A substitution is a cart signal against the consortium.</div></div>
+    <div class="card"><h2>Signals logged</h2>${c.signals.length?`<ul class="muted" style="margin:0;padding-left:18px">${c.signals.slice(-8).reverse().map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`:'<div class="muted">None yet.</div>'}</div>
+    ${done===list.length&&list.length?`<div class="card"><h2>Install complete</h2><div class="muted">As-planted map, lot list and the year-one calendar go out now.</div><button class="btn primary" type="button" data-go="handover" style="margin-top:10px">Go to Handover</button></div>`:''}
+  </div></div>`;
+}
+function handover(c){
+  if(!c.plan||!c.plan.quoteSent)return `<div class="card">Handover opens once the install is underway.</div>`;
+  const t=totals(c,c.plan);const rows=Object.values(c.plan.areas).flatMap(a=>a.rows);const planted=rows.filter(r=>r.planted).length;const events=rows.length*2+c.areas.length*3+1;const lots=rows.reduce((s,r)=>s+(r.actual||0),0);
+  const items=[['PDF','Plan: map, rows, consortia, planting order, bill of materials, implementation plan, financials',`${c.plan.sections.length} sections`],['PDF','Site brief, one page','ready'],['GEO','Plantings as GeoJSON and KML with every farmOS attribute',`${rows.length} rows`],['PTS','Planting points, as planted, for RTK or a handheld',`${t.points} points`],['QGZ','QGIS project with the client layers and the elevation clip','ready'],['ICS','Stewardship calendar: pruning, chop and drop, inoculation, harvest, yearly walk',`${events} events`],['PDF','Pruning guide per consortium',`${c.areas.length}`],['CSV','Lot list: what was planted where',`${lots} stems`]];
+  const preview=c.bundle?`<pre>${esc(c.bundle)}</pre>`:'';
+  return `<div class="cols"><div class="stack">
+    <div class="card"><h2>Export bundle</h2><span class="muted">The only thing the client ever sees. Generated from the records; nothing written by hand.</span>${items.map(i=>`<div class="item"><span class="ic">${i[0]}</span><span>${i[1]}</span><span class="c">${i[2]}</span></div>`).join('')}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn primary" type="button" id="bundle" ${planted<rows.length?'disabled':''}>Build bundle</button><span class="muted" style="align-self:center">${planted<rows.length?`${rows.length-planted} row${rows.length-planted===1?'':'s'} still to plant.`:c.bundle?'Built and written to Spaces under the opportunity.':'Writes to Spaces, then send to the client with the 30-minute walkthrough.'}</span></div>${preview}</div>
+  </div><div class="stack">
+    <div class="card"><h2>Archive</h2><div class="muted">Client records are plans, not our inventory. Archive, never delete. Skipped while a stewardship tier is active.</div><div style="margin-top:8px;font-size:14px;display:flex;flex-direction:column;gap:4px"><span>Stock location: transfer out to the client, then archive (lots stay on the moves)</span><span>farmOS property, ${c.areas.length} areas, ${rows.length} rows, ${lots} trees: archive (off the active maps and counts; logs kept)</span><span>PostGIS mirror prunes on its next pass</span><span>Trials this client is in keep their groups queryable</span><span>Odoo opportunity to Won, stage Archived</span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn" type="button" id="archive" ${c.bundle&&!c.archived?'':'disabled'}>${c.archived?'Archived':'Archive client'}</button><button class="btn" type="button" id="steward" ${c.archived||c.step==='steward'?'disabled':''}>${c.step==='steward'?'On stewardship':'Stewardship year instead'}</button></div></div>
+    <div class="card"><h2>Stewardship</h2><div class="muted">Keeps the client active. Visits land on the calendar, logs feed the species facts and the trials, and the bundle is rebuilt each year.</div></div>
+  </div></div>`;
+}
+function bundleText(c){const t=totals(c,c.plan);const hit=lookupZip(c.zip);return `${c.name}\nPlan v${c.plan.version} · ZIP ${c.zip} · zone ${hit?hit.zone:zoneOf(c)} · ${c.acres} acres\n\n`+c.areas.map(a=>{const pa=c.plan.areas[a.id];return `${a.name} · ${PRACTICES[a.practice].n} · ${pa.rows.length} rows\n  `+rowPicks(a,pa.cells).map(pk=>`${BY[pk.id].n} ×${pk.qty*pa.rows.length}`).join(', ')}).join('\n')+`\n\n${t.points} planting points · first harvest year ${t.first} · ${t.nfixShare}% nitrogen fixers\n\nSections: `+c.plan.sections.map(s=>s.title).join('; ')+`\n\nFiles: plan.pdf, site-brief.pdf, plantings.geojson, plantings.kml, points.gpx, client.qgz, calendar.ics, pruning-guides.pdf, lots.csv`}
+
+// ---------- events ----------
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;const c=cur();
+  if(b.dataset.view){S.view=b.dataset.view;if(S.view==='client'&&!c)S.view='pipeline';render();return}
+  if(b.dataset.open){S.open=b.dataset.open;S.view='client';const st=stageOf(cur());S.tab={intake:'intake',site:'site',design:'design',quote:'design',install:'install',handover:'handover',stewardship:'handover',archived:'handover'}[st];S.area=null;S.cell=null;render();return}
+  if(b.id==='newclient'){const id=uid();S.clients.push({id,name:'New client',zip:'',acres:1,step:'strategy',hands:'stake',goals:'',have:'',modules:['lifecycle'],areas:[{id:uid(),name:'Area 1',practice:'food',acres:1,wet:false,poor:false,shade:false,aspect:'S'}],site:{pulled:[],walk:{}},plan:null,stage:'intake',signals:[],bundle:null,archived:false});S.open=id;S.view='client';S.tab='intake';render();return}
+  if(b.id==='reset'){S=fresh();render();toast('Prototype reset');return}
+  if(b.id==='copysession'){const txt=sessionText();const ta=$('#sessiontext');ta.value=txt;ta.hidden=false;
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(()=>toast('Copied. Paste it into the feedback form.'),()=>{ta.focus();ta.select()});else{ta.focus();ta.select()}
+    return}
+  if(!c)return;
+  if(b.dataset.tab){S.tab=b.dataset.tab;S.cell=null;render();return}
+  if(b.dataset.go){S.tab=b.dataset.go;render();return}
+  if(b.id==='addarea'){c.areas.push({id:uid(),name:'Area '+(c.areas.length+1),practice:'food',acres:1,wet:false,poor:false,shade:false,aspect:'S'});render();return}
+  if(b.dataset.del){c.areas=c.areas.filter(a=>a.id!==b.dataset.del);if(c.plan)delete c.plan.areas[b.dataset.del];render();return}
+  if(b.dataset.t){const a=c.areas.find(a=>a.id===b.dataset.a);a[b.dataset.t]=!a[b.dataset.t];render();return}
+  if(b.dataset.mod){const i=c.modules.indexOf(b.dataset.mod);i>=0?c.modules.splice(i,1):c.modules.push(b.dataset.mod);render();return}
+  if(b.dataset.pull){const i=c.site.pulled.indexOf(b.dataset.pull);if(i<0)c.site.pulled.push(b.dataset.pull);render();return}
+  if(b.id==='draft'){c.plan=draftPlan(c);S.tab='design';S.cell=null;render();toast('Plan v'+c.plan.version+' drafted from goals');return}
+  if(b.dataset.area){S.area=b.dataset.area;S.cell=null;render();return}
+  if(b.dataset.cell){S.cell=S.cell===b.dataset.cell?null:b.dataset.cell;render();return}
+  if(b.dataset.swap&&S.cell){const pa=c.plan.areas[S.area];const old=pa.cells[S.cell];pa.cells[S.cell]=b.dataset.swap;c.signals.push(`Design: ${old?BY[old].n+' swapped for ':'gap filled with '}${BY[b.dataset.swap].n} in ${c.areas.find(a=>a.id===S.area).name}`);refreshFigures(c);render();return}
+  if(b.dataset.clear&&S.cell){const pa=c.plan.areas[S.area];c.signals.push(`Design: ${BY[pa.cells[S.cell]].n} removed in ${c.areas.find(a=>a.id===S.area).name}`);pa.cells[S.cell]=null;refreshFigures(c);render();return}
+  if(b.dataset.approve){const s=c.plan.sections.find(s=>s.key===b.dataset.approve);s.status='approved';s.by='Josh';render();return}
+  if(b.id==='approveplan'){c.plan.approved=true;render();toast('Plan v'+c.plan.version+' approved');return}
+  if(b.id==='sendquote'){c.plan.quoteSent=true;S.tab='install';render();toast('Quote and plan PDF sent; sale.order created');return}
+  if(b.dataset.plant){const r=Object.values(c.plan.areas).flatMap(a=>a.rows).find(r=>r.id===b.dataset.plant);const inp=document.querySelector(`[data-actual="${r.id}"]`);r.planted=true;r.actual=inp?+inp.value||0:0;render();toast('Row planted: transfer and farmOS trees written');return}
+  if(b.id==='bundle'){c.bundle=bundleText(c);render();toast('Bundle built and written to Spaces');return}
+  if(b.id==='archive'){c.archived=true;render();toast('Client archived; history kept');return}
+  if(b.id==='steward'){c.step='steward';render();return}
+});
+function sessionText(){const who=($('#whoname').value||'anonymous').trim();const out=[`Grove Consult session · ${who} · ${new Date().toISOString().slice(0,16).replace('T',' ')}`];
+  for(const c of S.clients){if(c.example&&!c.plan)continue;out.push(`Client ${c.name} · ZIP ${c.zip} zone ${zoneOf(c)} · ${c.acres} ac · stage ${STAGE_N[stageOf(c)]} · step ${c.step} · modules ${c.modules.join(', ')||'none'}`);
+    for(const a of c.areas)out.push(`  Area ${a.name}: ${PRACTICES[a.practice].n}, ${a.acres} ac, ${[a.wet?'wet':'',a.poor?'poor':'',a.shade?'shade':''].filter(Boolean).join(' ')||'open'}, ${a.aspect}`+(c.plan&&c.plan.areas[a.id]?` -> ${c.plan.areas[a.id].rows.length} rows: `+rowPicks(a,c.plan.areas[a.id].cells).map(p=>`${BY[p.id].n} x${p.qty}`).join(', '):''));
+    if(c.plan)out.push(`  Sections: ${c.plan.sections.map(s=>`${s.title} [${s.status}]`).join('; ')}`);
+    if(c.signals.length)out.push('  Signals: '+c.signals.join(' | '))}
+  return out.join('\n')}
+function refreshFigures(c){const keep=c.plan.sections;const fresh=buildSections(c,c.plan);c.plan.sections=fresh.map(s=>{const o=keep.find(k=>k.key===s.key);return o&&o.status!=='generated'?o:s})}
+document.addEventListener('input',e=>{const t=e.target,c=cur();if(!c)return;
+  if(t.dataset.f){let v=t.value;if(t.dataset.f==='zip')v=v.replace(/\D/g,'').slice(0,5);if(t.dataset.f==='acres')v=+v||0;c[t.dataset.f]=v;if(t.dataset.f==='zip'||t.dataset.f==='name'){save();renderNav();const n=t.nextElementSibling;if(n&&t.dataset.f==='zip'){const h=lookupZip(v);n.textContent=h?`Zone ${h.zone}, ${STATE_NAMES[h.state]}`:'Unknown ZIP, zone 6 assumed'}}else save();return}
+  if(t.dataset.a&&t.dataset.k){const a=c.areas.find(a=>a.id===t.dataset.a);a[t.dataset.k]=t.dataset.k==='acres'?(+t.value||0.1):t.value;save();if(t.tagName==='SELECT')render();return}
+  if(t.dataset.sec){const s=c.plan.sections.find(s=>s.key===t.dataset.sec);s.text=t.value;if(s.status==='generated'){s.status='edited';s.by='Josh';const badge=t.parentElement.querySelector('.badge');if(badge){badge.className='badge ed';badge.textContent='edited · Josh'}}save();return}
+  if(t.dataset.walk){c.site.walk[t.dataset.walk]=t.checked;save();return}
+});
+document.addEventListener('change',e=>{const t=e.target,c=cur();if(!c)return;
+  if(t.dataset.subrow){const r=Object.values(c.plan.areas).flatMap(a=>a.rows).find(r=>r.id===t.dataset.subrow);r.subs=r.subs.filter(s=>s.from!==t.dataset.from);if(t.value){r.subs.push({from:t.dataset.from,to:t.value});c.signals.push(`Install: ${BY[t.dataset.from].n} substituted with ${BY[t.value].n} on row ${r.n}`)}render();return}
+  if(t.dataset.f==='step'||t.dataset.f==='hands'){c[t.dataset.f]=t.value;render();return}
+});
+render();
+</script>
+</body></html>

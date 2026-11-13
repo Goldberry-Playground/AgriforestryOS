@@ -1,0 +1,109 @@
+name: Deploy labs
+
+# Deploys labs/ (static, self-contained HTML prototypes) to the Cloudflare
+# Pages project `grove-lab`, served at lab.atthegrovenursery.com. Replaces the
+# session-scratchpad deploy script (GOL-3725, restructure spec §D).
+#
+# Dormant until configured: the deploy is skipped with a warning unless both
+#   secret   CF_PAGES_TOKEN  — op://Grove Prod/grove-lab pages/credential,
+#                              synced by AgenticOS tools/sync-ci-secrets.sh
+#   variable CF_ACCOUNT_ID   — the Cloudflare account that owns grove-lab
+# are set, so merging this workflow doesn't cause failing runs on main.
+# See labs/README.md.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'labs/**'
+      - '.github/workflows/labs-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: labs-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy labs to Cloudflare Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LAB_URL: https://lab.atthegrovenursery.com
+    steps:
+      - uses: actions/checkout@v4
+
+      # Secrets can't be read in `if:`, so resolve "is this configured" once.
+      - name: Check configuration
+        id: cfg
+        env:
+          CF_PAGES_TOKEN: ${{ secrets.CF_PAGES_TOKEN }}
+          CF_ACCOUNT_ID: ${{ vars.CF_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -n "$CF_PAGES_TOKEN" ] && [ -n "$CF_ACCOUNT_ID" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=labs deploy skipped::CF_PAGES_TOKEN (secret) and CF_ACCOUNT_ID (variable) must both be set. See labs/README.md."
+          fi
+
+      # Upload everything in labs/ except the README (repo docs, not a page).
+      - name: Stage site
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/labs-site"
+          cp -R labs/. "$RUNNER_TEMP/labs-site/"
+          rm -f "$RUNNER_TEMP/labs-site/README.md"
+          for f in index.html planner/index.html consult/index.html _redirects _headers; do
+            test -s "$RUNNER_TEMP/labs-site/$f" || { echo "::error::labs/$f is missing or empty"; exit 1; }
+          done
+
+      # Third-party action pinned to an immutable commit SHA.
+      # --branch main keeps a workflow_dispatch from another ref a production
+      # deployment of grove-lab (production branch: main).
+      - name: Deploy to Cloudflare Pages
+        if: steps.cfg.outputs.ready == 'true'
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
+        with:
+          apiToken: ${{ secrets.CF_PAGES_TOKEN }}
+          accountId: ${{ vars.CF_ACCOUNT_ID }}
+          wranglerVersion: "4.162.0"
+          command: pages deploy ${{ runner.temp }}/labs-site --project-name grove-lab --branch main --commit-dirty=true
+
+      - name: Smoke-check the live site
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          fail=0
+          check() { # check <path> <expected status> [extra curl flag]
+            local code extra=()
+            if [ -n "${3:-}" ]; then extra=("$3"); fi
+            code=$(curl -sS "${extra[@]}" -o /dev/null -w '%{http_code}' --max-time 20 "$LAB_URL$1" || echo 000)
+            if [ "$code" = "$2" ]; then echo "ok   $1 -> $code"; else echo "::error::$1 answered $code, expected $2"; fail=1; fi
+          }
+          # Pages can take a few seconds to promote the new deployment.
+          for _ in 1 2 3 4 5 6; do
+            fail=0
+            check / 200
+            # -L: the bare path 308s to the trailing-slash form (and back
+            # again if a page is ever flattened to planner.html).
+            check /planner 200 -L
+            check /consult 200 -L
+            check /feedback 302
+            # Headers into a variable first: `curl | grep -q` trips pipefail
+            # when grep exits early.
+            root_headers=$(curl -sS -o /dev/null -D - --max-time 20 "$LAB_URL/" || true)
+            feedback_headers=$(curl -sS -o /dev/null -D - --max-time 20 "$LAB_URL/feedback" || true)
+            grep -qi '^x-robots-tag: *noindex' <<<"$root_headers" \
+              || { echo "::error::X-Robots-Tag: noindex missing on /"; fail=1; }
+            grep -qi '^location: *https://odoo\.gatheringatthegrove\.com/survey/' <<<"$feedback_headers" \
+              || { echo "::error::/feedback does not redirect to the Odoo survey"; fail=1; }
+            [ "$fail" = 0 ] && break
+            sleep 10
+          done
+          exit "$fail"

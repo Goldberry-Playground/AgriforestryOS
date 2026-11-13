@@ -1,0 +1,528 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><title>Grove Planner Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+/* Layout: the public planner on the left (four questions, the plan, the suggested list), the training bench on the right (rules, signals, evidence, suggestions, guilds). Stacks on phones. */
+:root{
+  --paper:#f5f0e4; --card:#fffdf7; --ink:#1e2a1d; --ink-2:#5b6455; --line:#d8cfbb;
+  --green:#1f4d33; --green-soft:#e1e9d6; --moss:#4c7846;
+  --clay:#89592a; --clay-soft:#f0e2cf;
+  --warn:#946612; --warn-soft:#f4e7c4; --bad:#8d2d28; --bad-soft:#f2dad7;
+  --display:"Fraunces",Georgia,"Times New Roman",serif;
+  --body:"Source Sans 3","Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#161a15; --card:#1e231c; --ink:#ebe5d6; --ink-2:#a7ae9e; --line:#353c31;
+  --green:#9cc697; --green-soft:#243326; --moss:#80ad79;
+  --clay:#d8a56a; --clay-soft:#3b2d1d;
+  --warn:#dfb64f; --warn-soft:#3a3117; --bad:#e37d75; --bad-soft:#3e2321; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#161a15; --card:#1e231c; --ink:#ebe5d6; --ink-2:#a7ae9e; --line:#353c31;
+  --green:#9cc697; --green-soft:#243326; --moss:#80ad79;
+  --clay:#d8a56a; --clay-soft:#3b2d1d;
+  --warn:#dfb64f; --warn-soft:#3a3117; --bad:#e37d75; --bad-soft:#3e2321; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5}
+.wrap{max-width:1240px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:22px}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);margin:0 0 4px}
+h1{font-family:var(--display);font-weight:400;font-size:34px;line-height:1.1;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-weight:400;font-size:22px;margin:0 0 4px}
+h3{font-family:var(--display);font-weight:600;font-size:17px;margin:0 0 8px}
+h4{font-family:var(--display);font-weight:600;font-size:15px;margin:14px 0 6px;color:var(--moss)}
+.lede{color:var(--ink-2);margin:4px 0 0;max-width:62ch}
+.tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:28px;align-items:start}
+@media (max-width:960px){.grid{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:18px;min-width:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;min-width:0}
+.q{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}
+.qn{font-family:var(--display);font-size:22px;color:var(--moss);line-height:1}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.chip{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:6px 14px;font:inherit;font-size:15px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--green);color:var(--paper);border-color:var(--green)}
+.chip:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--moss);outline-offset:2px}
+select,input[type=text]{font:inherit;font-size:15px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);max-width:100%}
+button.btn{font:inherit;font-size:14px;font-weight:600;padding:7px 12px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.btn.primary{background:var(--green);border-color:var(--green);color:var(--paper)}
+button.btn.quiet{border-color:transparent;color:var(--ink-2);padding-inline:6px}
+button.btn.small{font-size:13px;padding:4px 10px}
+button.btn:disabled{opacity:.5;cursor:not-allowed}
+.toggle{display:inline-flex;align-items:center;gap:8px;font-size:15px;cursor:pointer}
+.toggle input{width:18px;height:18px;accent-color:var(--green)}
+.muted{color:var(--ink-2);font-size:14px}
+.philosophy{border-left:3px solid var(--moss);padding:6px 14px;margin:0 0 4px;font-family:var(--display);font-size:16px;line-height:1.5;color:var(--ink)}
+.plan-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px}
+.picks{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-top:12px}
+.pick{border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--paper);display:flex;flex-direction:column;gap:6px;min-width:0}
+.pick.manual{border-color:var(--moss)}
+.pick .slot{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.pick .name{font-family:var(--display);font-size:18px;font-weight:600;line-height:1.2}
+.pick .latin{font-style:italic;color:var(--ink-2);font-size:14px}
+.badges{display:flex;flex-wrap:wrap;gap:6px}
+.badge{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--green-soft);color:var(--green)}
+.badge.marg{background:var(--warn-soft);color:var(--warn)}
+.badge.flag{background:var(--bad-soft);color:var(--bad)}
+.badge.clay{background:var(--clay-soft);color:var(--clay)}
+.badge.ghost{background:transparent;border:1px solid var(--line);color:var(--ink-2)}
+.why{font-size:13px;color:var(--ink-2);border-top:1px dashed var(--line);padding-top:6px;display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-variant-numeric:tabular-nums}
+.why b{color:var(--ink)}
+.pick .row{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto;align-items:center}
+.pick .qty{font-weight:600;margin-right:auto}
+.empty{border:1px dashed var(--line);border-radius:8px;padding:14px;color:var(--ink-2);font-size:14px}
+.summary{margin-top:14px;border-top:1px solid var(--line);padding-top:12px;display:grid;grid-template-columns:1fr auto;gap:4px 16px;font-variant-numeric:tabular-nums;max-width:420px}
+.summary .total{font-weight:600;font-size:17px}
+.consult{grid-column:1/-1;background:var(--green-soft);color:var(--green);border-radius:6px;padding:8px 10px;font-size:14px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;align-items:center}
+.list{list-style:none;margin:0;padding:0}
+.list li{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.list li:first-child{border-top:0}
+.list .nm{grid-column:1;grid-row:1;font-weight:600}
+.list .sub{grid-column:1;grid-row:2;color:var(--ink-2);font-size:13px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.list .add{grid-column:2;grid-row:1/3;align-self:center}
+.slider{display:grid;grid-template-columns:1fr 64px;gap:4px 10px;align-items:center;font-size:14px;margin-top:8px}
+.slider input{width:100%;accent-color:var(--green)}
+.slider .v{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.slider .hint{grid-column:1/-1;color:var(--ink-2);font-size:12px;margin-top:-2px}
+.log{list-style:none;margin:10px 0 0;padding:0;font-size:13px;color:var(--ink-2);display:flex;flex-direction:column;gap:4px}
+.log li{display:flex;gap:8px;align-items:baseline}
+.log time{font-variant-numeric:tabular-nums;flex:0 0 46px;color:var(--ink-2)}
+.proposal{border:1px solid var(--clay);background:var(--clay-soft);color:var(--ink);border-radius:8px;padding:10px 12px;margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.proposal.done{opacity:.6;border-color:var(--line);background:transparent}
+.tally{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
+.tally th,.tally td{text-align:left;padding:4px 6px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.tally th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);font-weight:600}
+.tally td:last-child,.tally th:last-child{text-align:right}
+.flagrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border:1px solid var(--bad);background:var(--bad-soft);border-radius:8px;padding:8px 12px;margin-top:8px;font-size:14px}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.form .full{grid-column:1/-1}
+@media (max-width:520px){.form{grid-template-columns:1fr}}
+.guild{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:8px}
+.guild b{font-family:var(--display);font-size:17px;font-weight:600}
+.sec-tabs{display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:12px;font-size:14px}
+.sec-tabs span{color:var(--ink-2)}
+.sec-tabs span.on{color:var(--ink);font-weight:600;border-bottom:2px solid var(--green)}
+.sec-tabs small{font-size:11px;background:var(--line);border-radius:4px;padding:0 4px;margin-left:4px}
+.notice{font-size:13px;color:var(--ink-2);margin-top:10px}
+.beta{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;background:var(--clay-soft);color:var(--clay);border-radius:4px;padding:2px 8px;margin-left:8px;vertical-align:middle}
+@media (prefers-reduced-motion:no-preference){.pick.new{animation:pop .35s ease-out}@keyframes pop{from{transform:translateY(4px);opacity:.4}to{transform:none;opacity:1}}}
+</style></head><body>
+
+<div class="wrap">
+<header>
+  <div>
+    <p class="eyebrow">At The Grove Nursery · planner.gatheringatthegrove.com <span class="beta">Winter beta</span></p>
+    <h1>Plan a temperate food forest the syntropic way</h1>
+    <p class="lede">Answer four questions and we stack a planting in space (overstory, understory, mushroom) and in time (fast, mid, long-lived). Pick from the suggested list, change anything, and tell us what we got wrong. The planner learns all winter before it goes on the shop.</p>
+  </div>
+  <div class="tools">
+    <label class="toggle"><input type="checkbox" id="tester"> Tester mode (show the why)</label>
+    <button class="btn quiet" id="reset" type="button">Reset everything</button>
+  </div>
+</header>
+<div class="card" id="workshop" style="margin-bottom:18px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+  <strong style="font-family:var(--display);font-size:16px">Workshop</strong>
+  <span class="muted" style="flex:1 1 320px">Build a plan for a site you know. Remove or add what we got wrong, dispute a fact in tester mode, suggest a plant. When you are done, copy your session and paste it into the feedback form.</span>
+  <input type="text" id="who" placeholder="Your name or farm" aria-label="Your name" style="flex:1 1 180px">
+  <button class="btn primary" id="copysession" type="button">Copy my session</button>
+  <textarea id="sessiontext" aria-label="Session summary" hidden style="width:100%;min-height:120px;font-family:Menlo,monospace;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:8px;background:var(--card);color:var(--ink)"></textarea>
+</div>
+
+<div class="grid">
+<section class="col" aria-label="Public planner">
+  <div class="sec-tabs" aria-hidden="true"><span class="on">Planner</span><span>Orchard &amp; food forest</span><span>Mycoforestry<small>soon</small></span><span>Forest farming<small>soon</small></span><span>Seed &amp; scion<small>soon</small></span></div>
+
+  <div class="card q">
+    <div class="qn">1</div>
+    <div>
+      <h3>Where will these go?</h3>
+      <div class="chips" style="margin-top:0;align-items:center">
+        <input type="text" id="zip" inputmode="numeric" maxlength="5" placeholder="ZIP code" aria-label="ZIP code" style="width:130px;font-variant-numeric:tabular-nums;font-size:17px">
+        <span class="muted" id="zipnote"></span>
+      </div>
+      <div id="statefallback" hidden>
+        <select id="state" aria-label="State" style="margin-top:8px"></select>
+        <div class="chips" id="zonechips"></div>
+      </div>
+      <p class="muted" id="zonenote"></p>
+    </div>
+  </div>
+
+  <div class="card q">
+    <div class="qn">2</div>
+    <div>
+      <h3>What are you building?</h3>
+      <div class="chips" id="track">
+        <button class="chip" data-v="food" type="button">Food forest</button>
+        <button class="chip" data-v="agro" type="button">Agroforestry rows</button>
+        <button class="chip" data-v="deer" type="button">Deer plot</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card q">
+    <div class="qn">3</div>
+    <div>
+      <h3>Tell us about the site</h3>
+      <div class="chips" id="site">
+        <button class="chip" data-v="wet" type="button">Wet ground</button>
+        <button class="chip" data-v="poor" type="button">Poor or rocky soil</button>
+        <button class="chip" data-v="shade" type="button">Part shade</button>
+      </div>
+      <div class="chips" id="plot">
+        <button class="chip" data-v="small" type="button">Under ¼ acre</button>
+        <button class="chip" data-v="medium" type="button">¼ to 1 acre</button>
+        <button class="chip" data-v="large" type="button">Over an acre</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card q">
+    <div class="qn">4</div>
+    <div>
+      <h3>When do you want harvests?</h3>
+      <div class="chips" id="season">
+        <button class="chip" data-v="early" type="button">Early summer</button>
+        <button class="chip" data-v="late" type="button">Fall</button>
+        <button class="chip" data-v="all" type="button">Spread across the year</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="plancard">
+    <div class="plan-head">
+      <h2>Your plan</h2>
+      <span class="muted" id="plansub"></span>
+    </div>
+    <p class="philosophy">Anchors are the long-lived trees the system is built around. Companions feed the soil, the pollinators and you while the anchors grow, and their prunings become the mulch and the mushroom logs. Nothing in the plan is planted alone.</p>
+    <div class="picks" id="picks"></div>
+    <div class="summary" id="summary"></div>
+    <div class="actions">
+      <input type="text" id="guildname" placeholder="Name this set, e.g. Wet-foot fall guild" aria-label="Guild name" style="flex:1 1 220px">
+      <button class="btn primary" id="saveguild" type="button">Approve as guild</button>
+      <button class="btn" id="redo" type="button">Rebuild plan</button>
+    </div>
+    <p class="notice">Removing, swapping or adding a pick is a signal the planner learns from. In tester mode you can also dispute a fact on any pick.</p>
+  </div>
+
+  <div class="card" id="suggestcard">
+    <div class="plan-head">
+      <h2>Or pick from the suggested list</h2>
+      <span class="muted" id="suggestsub"></span>
+    </div>
+    <p class="muted">Everything here fits your ZIP and site. The planner only shows what it did not already place.</p>
+    <div id="suggested"></div>
+    <h3 style="margin-top:16px">Suggest a plant we should carry</h3>
+    <div class="form">
+      <input type="text" id="sg-name" placeholder="Plant or fungus, e.g. Hardy pecan" aria-label="Plant name">
+      <select id="sg-layer" aria-label="Layer"><option value="over">Overstory</option><option value="under">Understory</option><option value="mush">Mushroom</option></select>
+      <input type="text" id="sg-note" class="full" placeholder="Why it belongs, and where you have grown it" aria-label="Why it belongs">
+      <button class="btn primary full" id="sg-add" type="button">Send suggestion</button>
+    </div>
+  </div>
+</section>
+
+<aside class="col" aria-label="Training bench">
+  <div class="card">
+    <h2>Planner rules</h2>
+    <p class="muted">Score = 100 minus penalties plus bonuses. Experts tune these all winter. Every change is logged.</p>
+    <div id="sliders"></div>
+    <h3 style="margin-top:14px">Changelog</h3>
+    <ul class="log" id="rulelog"><li class="muted">No changes yet.</li></ul>
+  </div>
+
+  <div class="card">
+    <h2>Cart signals</h2>
+    <p class="muted">What people remove, swap or add by hand, by zone. Three removals of one species in one zone band raises a proposal. A human accepts it.</p>
+    <div id="proposals"></div>
+    <table class="tally" id="tally"></table>
+    <div class="actions"><button class="btn" id="sim-orders" type="button">Simulate 10 orders</button></div>
+  </div>
+
+  <div class="card">
+    <h2>Evidence and audit</h2>
+    <p class="muted">Survival reports and expert disputes land here with a name on them. Three contradictions of one fact flag the species until someone reviews it.</p>
+    <div id="flags"></div>
+    <h3 style="margin-top:14px">Post-season check-in</h3>
+    <div class="form">
+      <select id="ev-plant" aria-label="Species"></select>
+      <select id="ev-zone" aria-label="Zone planted"></select>
+      <select id="ev-outcome" class="full" aria-label="Outcome">
+        <option value="thrived">Thrived and fruited</option>
+        <option value="alive">Alive, no fruit yet</option>
+        <option value="winter">Died over winter</option>
+        <option value="wet">Died in wet ground</option>
+        <option value="nofruit">Never fruited after the promised years</option>
+      </select>
+      <button class="btn primary full" id="ev-add" type="button">File report</button>
+    </div>
+    <div class="actions"><button class="btn" id="sim-season" type="button">Simulate a season of reports</button></div>
+    <h3 style="margin-top:14px">Evidence log</h3>
+    <ul class="log" id="evlog"><li class="muted">Nothing filed yet.</li></ul>
+  </div>
+
+  <div class="card">
+    <h2>Community suggestions</h2>
+    <p class="muted">Plants and fungi people asked for. Each one is a catalog candidate with a name on it. Accepting creates the draft listing for the facts pipeline.</p>
+    <div id="suggestions"><p class="muted">Nothing suggested yet.</p></div>
+  </div>
+
+  <div class="card">
+    <h2>Guilds</h2>
+    <p class="muted">Approved plans become named sets. This is what fills the empty Guilds page.</p>
+    <div id="guilds"><p class="muted">No guilds approved yet.</p></div>
+  </div>
+</aside>
+</div>
+</div>
+
+<script>
+// st = stratum (over, under, mush). role = anchor or companion. succ = place in time (placenta = fast, secondary = mid, climax = long-lived). ground = living mulch.
+const PLANTS=[
+ {id:'chestnut',name:'Chinese chestnut',latin:'Castanea mollissima',st:'over',role:'anchor',succ:'climax',z:[4,8],fc:[3,5],harvest:[9,10],wet:false,poor:true,shade:false,min:2,pri:1,wild:3,nfix:false,price:28},
+ {id:'persimmon',name:'American persimmon',latin:'Diospyros virginiana',st:'over',role:'anchor',succ:'climax',z:[4,9],fc:[4,6],harvest:[10,11],wet:true,poor:true,shade:false,min:1,pri:2,wild:3,nfix:false,price:26},
+ {id:'apple',name:'Apple, disease resistant',latin:'Malus domestica',st:'over',role:'anchor',succ:'secondary',z:[4,8],fc:[3,5],harvest:[9,10],wet:false,poor:false,shade:false,min:2,pri:2,wild:3,nfix:false,price:30},
+ {id:'mulberry',name:'Mulberry',latin:'Morus alba × rubra',st:'over',role:'companion',succ:'placenta',z:[4,8],fc:[2,3],harvest:[6,7],wet:false,poor:true,shade:false,min:1,pri:2,wild:3,nfix:false,price:22},
+ {id:'locust',name:'Black locust',latin:'Robinia pseudoacacia',st:'over',role:'companion',succ:'placenta',z:[4,8],fc:[1,1],harvest:[],wet:false,poor:true,shade:false,min:1,pri:3,wild:1,nfix:true,price:12},
+ {id:'hazel',name:'Hybrid hazelnut',latin:'Corylus americana × avellana',st:'under',role:'anchor',succ:'secondary',z:[4,8],fc:[2,4],harvest:[8,9],wet:false,poor:true,shade:true,min:2,pri:1,wild:2,nfix:false,price:18},
+ {id:'pawpaw',name:'Pawpaw',latin:'Asimina triloba',st:'under',role:'anchor',succ:'climax',z:[5,8],fc:[4,6],harvest:[9],wet:true,poor:false,shade:true,min:2,pri:2,wild:1,nfix:false,price:32},
+ {id:'chinquapin',name:'Allegheny chinquapin',latin:'Castanea pumila',st:'under',role:'anchor',succ:'secondary',z:[5,9],fc:[2,3],harvest:[9],wet:false,poor:true,shade:true,min:2,pri:2,wild:3,nfix:false,price:20},
+ {id:'jujube',name:'Jujube',latin:'Ziziphus jujuba',st:'under',role:'anchor',succ:'secondary',z:[6,9],fc:[2,3],harvest:[9,10],wet:false,poor:true,shade:false,min:1,pri:3,wild:1,nfix:false,price:34},
+ {id:'elderberry',name:'Elderberry',latin:'Sambucus canadensis',st:'under',role:'companion',succ:'placenta',z:[3,8],fc:[1,2],harvest:[8],wet:true,poor:false,shade:true,min:2,pri:2,wild:2,nfix:false,price:14},
+ {id:'serviceberry',name:'Serviceberry',latin:'Amelanchier',st:'under',role:'companion',succ:'secondary',z:[3,7],fc:[2,3],harvest:[6],wet:false,poor:true,shade:true,min:1,pri:3,wild:3,nfix:false,price:20},
+ {id:'seaberry',name:'Seaberry',latin:'Hippophae rhamnoides',st:'under',role:'companion',succ:'placenta',z:[3,7],fc:[2,3],harvest:[8,9],wet:false,poor:true,shade:false,min:2,pri:3,wild:1,nfix:true,price:18},
+ {id:'fig',name:'Fig, Chicago Hardy',latin:'Ficus carica',st:'under',role:'companion',succ:'secondary',z:[7,10],fc:[1,2],harvest:[8,9],wet:false,poor:false,shade:false,min:1,pri:2,wild:0,nfix:false,price:24},
+ {id:'kiwi',name:'Hardy kiwi',latin:'Actinidia arguta',st:'under',role:'companion',succ:'secondary',z:[4,8],fc:[3,5],harvest:[9,10],wet:false,poor:false,shade:true,min:2,pri:3,wild:0,nfix:false,price:22},
+ {id:'comfrey',name:'Comfrey, Bocking 14',latin:'Symphytum × uplandicum',st:'under',role:'companion',succ:'placenta',ground:true,z:[3,9],fc:[1,1],harvest:[],wet:true,poor:true,shade:true,min:1,pri:1,wild:0,nfix:false,price:8},
+ {id:'clover',name:'White clover, seed',latin:'Trifolium repens',st:'under',role:'companion',succ:'placenta',ground:true,z:[3,9],fc:[1,1],harvest:[],wet:false,poor:true,shade:true,min:1,pri:2,wild:2,nfix:true,price:6},
+ {id:'winecap',name:'Wine cap spawn',latin:'Stropharia rugosoannulata',st:'mush',role:'anchor',succ:'placenta',z:[3,9],fc:[1,1],harvest:[5,6,9,10],wet:true,poor:true,shade:true,min:1,pri:1,wild:0,nfix:false,price:24,sub:'wood chips under the understory'},
+ {id:'shiitake',name:'Shiitake plug spawn',latin:'Lentinula edodes',st:'mush',role:'companion',succ:'secondary',z:[4,8],fc:[1,2],harvest:[5,6,9,10],wet:false,poor:true,shade:true,min:1,pri:2,wild:0,nfix:false,price:18,sub:'oak or maple logs from your thinnings'},
+ {id:'oyster',name:'Oyster spawn',latin:'Pleurotus ostreatus',st:'mush',role:'companion',succ:'placenta',z:[3,9],fc:[1,1],harvest:[4,5,10,11],wet:true,poor:true,shade:true,min:1,pri:2,wild:0,nfix:false,price:18,sub:'fresh hardwood logs or straw'},
+];
+const BY=Object.fromEntries(PLANTS.map(p=>[p.id,p]));
+const STRATA={over:'Overstory',under:'Understory',mush:'Mushroom'};
+const SUCC={placenta:'fast',secondary:'mid',climax:'long-lived'};
+const STATES={WV:[5,7],OH:[5,6],PA:[5,7],VA:[6,8],NC:[6,8],KY:[6,7],TN:[6,8],MD:[6,7],NY:[4,6],GA:[7,9],MI:[4,6],IN:[5,6],IL:[5,7],SC:[7,9],NJ:[6,7],DE:[7,7]};
+const STATE_NAMES={WV:'West Virginia',OH:'Ohio',PA:'Pennsylvania',VA:'Virginia',NC:'North Carolina',KY:'Kentucky',TN:'Tennessee',MD:'Maryland',NY:'New York',GA:'Georgia',MI:'Michigan',IN:'Indiana',IL:'Illinois',SC:'South Carolina',NJ:'New Jersey',DE:'Delaware'};
+const SEASON={early:[6,7,8],late:[9,10,11],all:[6,7,8,9,10,11]};
+// Three-digit ZIP prefix ranges to USDA 2023 zone, eastern ship-to states. Unknown prefixes fall back to the state picker.
+const ZIPS=[
+ [70,77,'NJ','7a'],[78,78,'NJ','6b'],[79,79,'NJ','7a'],[80,84,'NJ','7b'],[85,89,'NJ','7a'],
+ [100,104,'NY','7b'],[105,109,'NY','7a'],[110,119,'NY','7b'],[120,127,'NY','6a'],[128,128,'NY','5b'],[129,129,'NY','5a'],[130,132,'NY','6a'],[133,135,'NY','5b'],[136,136,'NY','5a'],[137,139,'NY','6a'],[140,146,'NY','6b'],[147,149,'NY','6a'],
+ [150,154,'PA','6b'],[155,155,'PA','6a'],[156,156,'PA','6b'],[157,163,'PA','6a'],[164,165,'PA','6b'],[166,166,'PA','6a'],[167,167,'PA','5b'],[168,168,'PA','6a'],[169,169,'PA','5b'],[170,172,'PA','6b'],[173,176,'PA','7a'],[177,179,'PA','6a'],[180,181,'PA','6b'],[182,187,'PA','6a'],[188,188,'PA','5b'],[189,189,'PA','6b'],[190,191,'PA','7b'],[193,194,'PA','7a'],[195,196,'PA','6b'],
+ [197,199,'DE','7b'],
+ [206,207,'MD','7b'],[208,209,'MD','7a'],[210,214,'MD','7b'],[215,215,'MD','6b'],[216,216,'MD','7b'],[217,217,'MD','7a'],[218,218,'MD','7b'],[219,219,'MD','7a'],
+ [220,223,'VA','7a'],[224,225,'VA','7b'],[226,227,'VA','7a'],[228,228,'VA','6b'],[229,229,'VA','7a'],[230,233,'VA','7b'],[234,237,'VA','8a'],[238,239,'VA','7b'],[240,241,'VA','7a'],[242,244,'VA','6b'],[245,245,'VA','7a'],[246,246,'VA','6b'],
+ [247,254,'WV','6b'],[255,257,'WV','7a'],[258,259,'WV','6a'],[260,266,'WV','6b'],[267,268,'WV','6a'],
+ [270,277,'NC','7b'],[278,283,'NC','8a'],[284,284,'NC','8b'],[285,285,'NC','8a'],[286,286,'NC','7b'],[287,289,'NC','7a'],
+ [290,293,'SC','8a'],[294,294,'SC','9a'],[295,298,'SC','8a'],[299,299,'SC','9a'],
+ [300,303,'GA','8a'],[304,304,'GA','8b'],[305,306,'GA','8a'],[307,307,'GA','7b'],[308,312,'GA','8b'],[313,316,'GA','9a'],[317,319,'GA','8b'],
+ [370,374,'TN','7b'],[376,376,'TN','7a'],[377,379,'TN','7b'],[380,381,'TN','8a'],[382,384,'TN','7b'],[385,385,'TN','7a'],
+ [400,402,'KY','7a'],[403,418,'KY','6b'],[420,424,'KY','7a'],[425,426,'KY','6b'],[427,427,'KY','7a'],
+ [430,432,'OH','6b'],[433,436,'OH','6a'],[437,443,'OH','6b'],[444,445,'OH','6a'],[446,447,'OH','6b'],[448,449,'OH','6a'],[450,457,'OH','6b'],[458,458,'OH','6a'],
+ [460,462,'IN','6b'],[463,470,'IN','6a'],[471,471,'IN','7a'],[472,472,'IN','6b'],[473,473,'IN','6a'],[474,475,'IN','6b'],[476,477,'IN','7a'],[478,478,'IN','6b'],[479,479,'IN','6a'],
+ [480,483,'MI','6b'],[484,489,'MI','6a'],[490,491,'MI','6b'],[492,495,'MI','6a'],[496,496,'MI','5b'],[497,499,'MI','5a'],
+ [600,608,'IL','6a'],[609,614,'IL','5b'],[615,616,'IL','6a'],[617,617,'IL','5b'],[618,619,'IL','6a'],[620,622,'IL','7a'],[623,627,'IL','6a'],[628,628,'IL','6b'],[629,629,'IL','7a'],
+];
+function lookupZip(zip){if(!/^\d{5}$/.test(zip||''))return null;const p=+zip.slice(0,3);const r=ZIPS.find(r=>p>=r[0]&&p<=r[1]);return r?{state:r[2],zone:r[3]}:null}
+const WEIGHTS=[
+ {k:'pri',label:'Merchandising priority',min:0,max:5,step:.5,hint:'Points off per priority step. Chestnut is 1, kiwi is 3.'},
+ {k:'fc',label:'Years to first crop',min:0,max:4,step:.5,hint:'Points off per year of waiting.'},
+ {k:'marg',label:'Marginal zone penalty',min:0,max:80,step:5,hint:'One zone outside the safe band.'},
+ {k:'season',label:'Harvest in wanted season',min:0,max:10,step:1,hint:'Points per matching harvest month.'},
+ {k:'wild',label:'Wildlife value (deer plots)',min:0,max:15,step:1,hint:'Points per wildlife step on the deer track only.'},
+ {k:'nfix',label:'Nitrogen fixer bonus',min:0,max:30,step:5,hint:'Flat bonus for fixers. Syntropic rows lean on them.'},
+];
+const DEFAULT={weights:{pri:2,fc:1.5,marg:40,season:4,wild:6,nfix:10},rulelog:[],evidence:[],removals:{},proposals:[],guilds:[],suggestions:[],manual:[],priAdj:{},reviewed:[],tester:false,
+ inputs:{zip:'25301',state:'WV',zoneIdx:1,track:'food',wet:false,poor:false,shade:false,plot:'medium',season:'all'}};
+let S=load();
+let plan=[],removed=new Set();
+function load(){try{const r=localStorage.getItem('planner-lab-v2');if(r){const o=JSON.parse(r);return Object.assign({},structuredClone(DEFAULT),o,{inputs:Object.assign({},DEFAULT.inputs,o.inputs||{}),weights:Object.assign({},DEFAULT.weights,o.weights||{})})}}catch(e){}return structuredClone(DEFAULT)}
+function save(){try{localStorage.setItem('planner-lab-v2',JSON.stringify(S))}catch(e){}}
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const stamp=()=>{const d=new Date();return d.toTimeString().slice(0,5)};
+const M=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function zoneFor(inp){const hit=lookupZip(inp.zip);if(hit)return parseInt(hit.zone);const b=STATES[inp.state];const span=b[1]-b[0];if(span===0)return b[0];const idx=Math.min(inp.zoneIdx,2);return [b[0],Math.round((b[0]+b[1])/2),b[1]][idx]}
+function zoneLabel(inp){const hit=lookupZip(inp.zip);return hit?hit.zone:String(zoneFor(inp))}
+function zoneBand(z){return z<=5?'3-5':z<=7?'6-7':'8-9'}
+function flagged(){const c={};for(const e of S.evidence){if(!e.contradicts)continue;const k=e.plant+'|'+e.fact;if(S.reviewed.includes(k))continue;c[k]=(c[k]||0)+1}return Object.entries(c).filter(([k,n])=>n>=3).map(([k,n])=>({plant:k.split('|')[0],fact:k.split('|')[1],n}))}
+
+function score(p,inp,zone){
+  const w=S.weights,wanted=SEASON[inp.season];
+  const marginal=zone<p.z[0]||zone>p.z[1];
+  const pri=p.pri+(S.priAdj[p.id]||0);
+  const b=[];let s=100;b.push(['Base',100]);
+  const a=-w.pri*pri;s+=a;b.push([`Priority ${pri}`,a]);
+  const f=-w.fc*p.fc[0];s+=f;b.push([`First crop ${p.fc[0]} yr`,f]);
+  if(marginal){s-=w.marg;b.push(['Marginal zone',-w.marg])}
+  const m=p.harvest.filter(h=>wanted.includes(h)).length;if(m){const v=w.season*m;s+=v;b.push([`${m} harvest month${m>1?'s':''} in season`,v])}
+  if(inp.track==='deer'&&p.wild){const v=w.wild*p.wild;s+=v;b.push([`Wildlife value ${p.wild}`,v])}
+  if(p.nfix&&inp.track!=='deer'){s+=w.nfix;b.push(['Fixes nitrogen',w.nfix])}
+  return {s:Math.round(s*10)/10,b,marginal};
+}
+function eligible(p,inp,zone){
+  if(zone<p.z[0]-1||zone>p.z[1]+1)return false;
+  if(inp.wet&&!p.wet)return false;if(inp.poor&&!p.poor)return false;if(inp.shade&&!p.shade)return false;
+  if(inp.track==='deer'&&(p.st==='mush'||(p.wild===0&&!p.ground)))return false;
+  return true;
+}
+// Slots are read in planting order: the long-lived anchors first, then what feeds the system while they grow.
+function slotsFor(inp){
+  const O=(r,g)=>({st:'over',role:r}),U=(r,g)=>({st:'under',role:r,ground:!!g}),Mu=r=>({st:'mush',role:r});
+  const base={food:[O('anchor'),O('companion'),U('anchor'),U('companion'),U('companion',true),Mu('anchor')],
+    agro:[O('anchor'),O('anchor'),O('companion'),U('companion'),U('companion',true),Mu('anchor')],
+    deer:[O('anchor'),O('companion'),U('anchor'),U('companion')]}[inp.track];
+  const extra={small:[],medium:[U('anchor')],large:[O('anchor'),U('companion'),Mu('companion')]}[inp.plot];
+  return base.concat(inp.track==='deer'?extra.filter(s=>s.st!=='mush'):extra);
+}
+function fitsSlot(p,slot){return p.st===slot.st&&p.role===slot.role&&(!!p.ground===!!slot.ground)}
+function bestFor(slot,inp,zone,used){
+  return PLANTS.filter(p=>fitsSlot(p,slot)&&!used.has(p.id)&&!removed.has(p.id)&&eligible(p,inp,zone))
+   .map(p=>Object.assign({p},score(p,inp,zone))).sort((a,b)=>b.s-a.s)[0];
+}
+function qtyFor(p,inp){const mult={small:1,medium:2,large:4}[inp.plot];if(p.st==='mush')return mult;return Math.max(p.min,mult*(p.ground?5:1))}
+function buildPlan(){
+  const inp=S.inputs,zone=zoneFor(inp),used=new Set();
+  plan=slotsFor(inp).map(slot=>{const c=bestFor(slot,inp,zone,used);if(!c)return {slot,empty:true};used.add(c.p.id);
+    return {slot,p:c.p,qty:qtyFor(c.p,inp),s:c.s,b:c.b,marginal:c.marginal}});
+  for(const id of S.manual){const p=BY[id];if(!p||used.has(id)||removed.has(id)||!eligible(p,inp,zone))continue;used.add(id);
+    const c=score(p,inp,zone);plan.push({slot:{st:p.st,role:p.role},p,qty:qtyFor(p,inp),s:c.s,b:c.b,marginal:c.marginal,manual:true})}
+}
+
+function renderInputs(){
+  const inp=S.inputs,hit=lookupZip(inp.zip);
+  if($('#zip').value!==inp.zip)$('#zip').value=inp.zip;
+  $('#statefallback').hidden=!!hit;
+  $('#state').innerHTML=Object.keys(STATES).map(k=>`<option value="${k}"${k===inp.state?' selected':''}>${STATE_NAMES[k]}</option>`).join('');
+  const b=STATES[inp.state],span=b[1]-b[0];
+  $('#zonechips').innerHTML=span?['Colder end','Middle','Warmer end'].map((l,i)=>`<button class="chip" type="button" data-i="${i}" aria-pressed="${inp.zoneIdx===i}">${l}</button>`).join(''):'';
+  if(hit){$('#zipnote').textContent=`Zone ${hit.zone}, ${STATE_NAMES[hit.state]}`;$('#zonenote').textContent=`Planning for zone ${hit.zone}. The real lookup would also set the ship window and check ${STATE_NAMES[hit.state]} plant rules.`}
+  else{$('#zipnote').textContent=inp.zip.length===5?'We don’t know that ZIP yet. Pick your state.':'Five digits';$('#zonenote').textContent=`Zone ${zoneFor(inp)} from ${STATE_NAMES[inp.state]}, which runs ${b[0]===b[1]?`zone ${b[0]}`:`zones ${b[0]} to ${b[1]}`}.`}
+  for(const [id,key] of [['#track','track'],['#plot','plot'],['#season','season']])document.querySelectorAll(id+' .chip').forEach(c=>c.setAttribute('aria-pressed',String(c.dataset.v===inp[key])));
+  document.querySelectorAll('#site .chip').forEach(c=>c.setAttribute('aria-pressed',String(!!inp[c.dataset.v])));
+  $('#tester').checked=!!S.tester;
+}
+function factsFor(p){return [['zone_min',`Hardy to zone ${p.z[0]}`],['years_to_fruit',`First ${p.st==='mush'?'flush':'crop'} in ${p.fc[0]} to ${p.fc[1]} year${p.fc[1]>1?'s':''}`],['tolerates_wet',p.wet?'Tolerates wet ground':'Needs drained ground'],['tolerates_shade',p.shade?'Takes part shade':'Needs full sun'],['pollination',p.min>1?`Needs ${p.min} for pollination`:'Self-fertile or not applicable'],['stratum',`${STRATA[p.st]} ${p.role}, ${SUCC[p.succ]} succession`]]}
+function renderPlan(){
+  const inp=S.inputs,zone=zoneFor(inp),fl=flagged();
+  const trackName={food:'food forest',agro:'agroforestry rows',deer:'deer plot'}[inp.track];
+  $('#plansub').textContent=`Zone ${zoneLabel(inp)} · ${trackName} · ${{small:'small plot',medium:'quarter to one acre',large:'over an acre'}[inp.plot]}`;
+  $('#picks').innerHTML=plan.map(x=>{
+    const slotName=`${STRATA[x.slot.st]} ${x.slot.role}${x.slot.ground?' · ground':''}`;
+    if(x.empty)return `<div class="empty"><span style="display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase">${slotName}</span>Nothing fits this slot on this site. The storefront would offer a call here, and it is a gap worth a suggestion below.</div>`;
+    const p=x.p,flags=fl.filter(f=>f.plant===p.id);
+    return `<div class="pick new${x.manual?' manual':''}" data-id="${p.id}">
+      <span class="slot">${slotName}${x.manual?' · your pick':''}</span>
+      <span class="name">${esc(p.name)}</span><span class="latin">${esc(p.latin)}</span>
+      <div class="badges"><span class="badge${x.marginal?' marg':''}">${x.marginal?'Marginal zone':'Zone safe'}</span>
+        <span class="badge ghost">${SUCC[p.succ]}</span>
+        ${p.harvest.length?`<span class="badge clay">${M[p.harvest[0]]}${p.harvest.length>1?' to '+M[p.harvest[p.harvest.length-1]]:''}</span>`:''}
+        ${p.nfix?'<span class="badge ghost">fixes N</span>':''}
+        ${flags.map(f=>`<span class="badge flag">Needs review: ${f.fact.replace('_',' ')}</span>`).join('')}</div>
+      ${p.sub?`<span class="muted" style="font-size:13px">Grows on ${esc(p.sub)}.</span>`:''}
+      ${S.tester?`<div class="why">${x.b.map(([l,v])=>`<span>${esc(l)}</span><span>${v>0?'+':''}${v}</span>`).join('')}<b>Score</b><b>${x.s}</b></div>
+      <div class="row"><select aria-label="Dispute a fact" data-dispute="${p.id}" style="font-size:13px;padding:4px 6px"><option value="">Dispute a fact…</option>${factsFor(p).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></div>`:''}
+      <div class="row"><span class="qty">× ${x.qty} · $${p.price*x.qty}</span>
+        ${x.manual?'':`<button class="btn" type="button" data-swap="${p.id}">Swap</button>`}<button class="btn quiet" type="button" data-remove="${p.id}">Remove</button></div>
+    </div>`}).join('');
+  const sub=plan.filter(x=>!x.empty).reduce((a,x)=>a+x.p.price*x.qty,0);
+  $('#summary').innerHTML=`<span>Trees, plants and spawn</span><span>$${sub}</span><span>Deposit today</span><span>$10</span><span class="total">Goods subtotal</span><span class="total">$${sub}</span>
+    ${sub>=500?`<div class="consult">Over $500, so a free 30-minute planting consult is added to the order at $0.</div>`:`<span class="muted" style="grid-column:1/-1">$${500-sub} more unlocks a free planting consult.</span>`}`;
+  requestAnimationFrame(()=>document.querySelectorAll('.pick.new').forEach(e=>e.classList.remove('new')));
+}
+function renderSuggested(){
+  const inp=S.inputs,zone=zoneFor(inp),inPlan=new Set(plan.filter(x=>!x.empty).map(x=>x.p.id));
+  let shown=0,hidden=0,html='';
+  for(const st of ['over','under','mush']){
+    const rows=PLANTS.filter(p=>p.st===st&&!inPlan.has(p.id)).map(p=>({p,ok:eligible(p,inp,zone),...score(p,inp,zone)})).sort((a,b)=>(b.ok-a.ok)||(b.s-a.s));
+    const ok=rows.filter(r=>r.ok);hidden+=rows.length-ok.length;
+    if(!ok.length)continue;shown+=ok.length;
+    html+=`<h4>${STRATA[st]}</h4><ul class="list">`+ok.map(r=>{const p=r.p;return `<li><span class="nm">${esc(p.name)} <span class="badge ghost">${p.role}</span></span><button class="btn small add" type="button" data-add="${p.id}">Add</button>
+      <span class="sub"><span class="badge${r.marginal?' marg':''}">${r.marginal?'Marginal':'Zone safe'}</span><span>${SUCC[p.succ]}</span>${p.harvest.length?`<span>${M[p.harvest[0]]}${p.harvest.length>1?' to '+M[p.harvest[p.harvest.length-1]]:''}</span>`:''}${p.nfix?'<span>fixes N</span>':''}${p.ground?'<span>living mulch</span>':''}<span>$${p.price}</span>${S.tester?`<span>score ${r.s}</span>`:''}</span></li>`}).join('')+'</ul>';
+  }
+  $('#suggested').innerHTML=html||'<p class="muted">Everything that fits this site is already in the plan.</p>';
+  $('#suggestsub').textContent=`${shown} fit · ${hidden} hidden for this site`;
+}
+function renderBench(){
+  $('#sliders').innerHTML=WEIGHTS.map(w=>`<div class="slider"><label for="w-${w.k}">${w.label}</label><span class="v" id="v-${w.k}">${S.weights[w.k]}</span>
+    <input type="range" id="w-${w.k}" data-k="${w.k}" min="${w.min}" max="${w.max}" step="${w.step}" value="${S.weights[w.k]}"><span class="hint">${w.hint}</span></div>`).join('');
+  $('#rulelog').innerHTML=S.rulelog.length?S.rulelog.slice(-6).reverse().map(l=>`<li><time>${l.t}</time><span>${esc(l.text)}</span></li>`).join(''):'<li class="muted">No changes yet.</li>';
+  const pend=S.proposals.filter(p=>p.status==='pending'),done=S.proposals.filter(p=>p.status!=='pending').slice(-3);
+  $('#proposals').innerHTML=pend.map(p=>`<div class="proposal"><span><b>Proposed:</b> ${esc(p.text)}</span><span><button class="btn primary" type="button" data-accept="${p.id}">Accept</button> <button class="btn quiet" type="button" data-dismiss="${p.id}">Dismiss</button></span></div>`).join('')
+    +done.map(p=>`<div class="proposal done"><span>${esc(p.text)}</span><span class="muted">${p.status}</span></div>`).join('');
+  const rows=Object.entries(S.removals).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  $('#tally').innerHTML=rows.length?`<tr><th>Species</th><th>Zone band</th><th>Signal</th><th>Count</th></tr>`+rows.map(([k,n])=>{const [id,band,kind]=k.split('|');return `<tr><td>${esc(BY[id].name)}</td><td>${band}</td><td>${kind}</td><td>${n}</td></tr>`}).join(''):`<tr><td class="muted">No signals logged. Remove, swap or add a pick on the left, or simulate orders.</td></tr>`;
+  const fl=flagged();
+  $('#flags').innerHTML=fl.length?fl.map(f=>`<div class="flagrow"><span><b>${esc(BY[f.plant].name)}</b> · ${f.fact.replace('_',' ')} contradicted ${f.n} times. Reviewed flag cleared.</span><button class="btn" type="button" data-review="${f.plant}|${f.fact}">Mark reviewed</button></div>`).join(''):'<p class="muted" style="margin:8px 0 0">No species flagged.</p>';
+  $('#ev-plant').innerHTML=PLANTS.filter(p=>!p.ground).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  $('#ev-zone').innerHTML=[3,4,5,6,7,8,9].map(z=>`<option value="${z}"${z===zoneFor(S.inputs)?' selected':''}>Zone ${z}</option>`).join('');
+  $('#evlog').innerHTML=S.evidence.length?S.evidence.slice(-8).reverse().map(e=>`<li><time>${e.t}</time><span>${esc(e.text)}</span></li>`).join(''):'<li class="muted">Nothing filed yet.</li>';
+  $('#suggestions').innerHTML=S.suggestions.length?S.suggestions.slice().reverse().map(s=>`<div class="guild"><b>${esc(s.name)}</b> <span class="badge ghost">${STRATA[s.layer]}</span><div class="muted">${esc(s.note||'No note')} · ${s.t}</div><div class="actions" style="margin-top:8px">${s.status==='queued'?`<button class="btn small primary" type="button" data-sg-accept="${s.id}">Accept as catalog candidate</button><button class="btn small quiet" type="button" data-sg-drop="${s.id}">Decline</button>`:`<span class="muted">${s.status}</span>`}</div></div>`).join(''):'<p class="muted">Nothing suggested yet.</p>';
+  $('#guilds').innerHTML=S.guilds.length?S.guilds.slice().reverse().map(g=>`<div class="guild"><b>${esc(g.name)}</b><div class="muted">Zone ${g.zone} · ${g.track} · approved ${g.t}</div><div>${esc(g.items)}</div></div>`).join(''):'<p class="muted">No guilds approved yet.</p>';
+}
+function all(){buildPlan();renderInputs();renderPlan();renderSuggested();renderBench();save()}
+
+function logRule(text){S.rulelog.push({t:stamp(),text})}
+function cartSignal(id,kind){const band=zoneBand(zoneFor(S.inputs)),k=id+'|'+band+'|'+kind;S.removals[k]=(S.removals[k]||0)+1;
+  if(kind==='removed'&&S.removals[k]>=3&&!S.proposals.some(p=>p.key===k))S.proposals.push({id:Date.now()+Math.random(),key:k,plant:id,dir:1,status:'pending',text:`Lower ${BY[id].name} priority for zone band ${band} (removed ${S.removals[k]} times)`});
+  if(kind==='added'&&S.removals[k]>=3&&!S.proposals.some(p=>p.key===k))S.proposals.push({id:Date.now()+Math.random(),key:k,plant:id,dir:-1,status:'pending',text:`Raise ${BY[id].name} priority for zone band ${band} (added by hand ${S.removals[k]} times)`});
+  S.evidence.push({t:stamp(),kind:'cart',plant:id,fact:'preference',contradicts:false,text:`Cart: ${BY[id].name} ${kind} in zone ${zoneFor(S.inputs)}`})}
+function fileReport(id,zone,outcome){
+  const p=BY[id];let fact='',contra=false,text='';
+  if(outcome==='winter'){fact='zone_min';contra=zone>=p.z[0];text=`${p.name} died over winter in zone ${zone}${contra?` (listed hardy to ${p.z[0]})`:''}`}
+  else if(outcome==='wet'){fact='tolerates_wet';contra=p.wet;text=`${p.name} died in wet ground${contra?' (listed as wet tolerant)':''}`}
+  else if(outcome==='nofruit'){fact='years_to_fruit';contra=true;text=`${p.name} not fruiting after ${p.fc[1]} years in zone ${zone}`}
+  else if(outcome==='alive'){fact='zone_min';text=`${p.name} alive in zone ${zone}, no fruit yet`}
+  else{fact='zone_min';text=`${p.name} thrived and fruited in zone ${zone}`}
+  S.evidence.push({t:stamp(),kind:'survival',plant:id,fact,contradicts:contra,text:'Report: '+text});
+}
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.parentElement&&b.parentElement.id==='zonechips'){S.inputs.zoneIdx=+b.dataset.i;removed.clear();all();return}
+  for(const [id,key] of [['track','track'],['plot','plot'],['season','season']])if(b.parentElement&&b.parentElement.id===id){S.inputs[key]=b.dataset.v;removed.clear();all();return}
+  if(b.parentElement&&b.parentElement.id==='site'){S.inputs[b.dataset.v]=!S.inputs[b.dataset.v];removed.clear();all();return}
+  if(b.dataset.remove){cartSignal(b.dataset.remove,'removed');removed.add(b.dataset.remove);S.manual=S.manual.filter(x=>x!==b.dataset.remove);all();return}
+  if(b.dataset.swap){cartSignal(b.dataset.swap,'swapped out');removed.add(b.dataset.swap);all();return}
+  if(b.dataset.add){if(!S.manual.includes(b.dataset.add))S.manual.push(b.dataset.add);removed.delete(b.dataset.add);cartSignal(b.dataset.add,'added');all();
+    const el=document.querySelector(`.pick[data-id="${b.dataset.add}"]`);if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});return}
+  if(b.dataset.accept){const p=S.proposals.find(x=>String(x.id)===b.dataset.accept);p.status='accepted';S.priAdj[p.plant]=(S.priAdj[p.plant]||0)+(p.dir||1);logRule(`${BY[p.plant].name} priority ${p.dir<0?'-1':'+1'} (accepted cart proposal)`);all();return}
+  if(b.dataset.dismiss){S.proposals.find(x=>String(x.id)===b.dataset.dismiss).status='dismissed';all();return}
+  if(b.dataset.review){S.reviewed.push(b.dataset.review);S.evidence.push({t:stamp(),kind:'expert',plant:b.dataset.review.split('|')[0],fact:b.dataset.review.split('|')[1],contradicts:false,text:`Reviewed: ${BY[b.dataset.review.split('|')[0]].name} ${b.dataset.review.split('|')[1].replace('_',' ')} signed off`});all();return}
+  if(b.dataset.sgAccept){const s=S.suggestions.find(x=>String(x.id)===b.dataset.sgAccept);s.status='accepted, draft listing opened';logRule(`Catalog candidate: ${s.name} (${STRATA[s.layer]})`);all();return}
+  if(b.dataset.sgDrop){S.suggestions.find(x=>String(x.id)===b.dataset.sgDrop).status='declined';all();return}
+  if(b.id==='sg-add'){const name=$('#sg-name').value.trim();if(!name){$('#sg-name').focus();$('#sg-name').placeholder='Name the plant first';return}
+    S.suggestions.push({id:Date.now()+Math.random(),name,layer:$('#sg-layer').value,note:$('#sg-note').value.trim(),status:'queued',t:stamp()});$('#sg-name').value='';$('#sg-note').value='';all();return}
+  if(b.id==='redo'){removed.clear();all();return}
+  if(b.id==='saveguild'){const name=$('#guildname').value.trim();if(!name){$('#guildname').focus();$('#guildname').placeholder='Give it a name first';return}
+    const items=plan.filter(x=>!x.empty).map(x=>`${x.qty} ${x.p.name}`).join(', ');S.guilds.push({name,zone:zoneLabel(S.inputs),track:{food:'food forest',agro:'agroforestry',deer:'deer plot'}[S.inputs.track],items,t:stamp()});$('#guildname').value='';all();return}
+  if(b.id==='ev-add'){fileReport($('#ev-plant').value,+$('#ev-zone').value,$('#ev-outcome').value);all();return}
+  if(b.id==='sim-orders'){const keep=structuredClone(S.inputs),keepRemoved=new Set(removed),keepManual=S.manual.slice();const ks=Object.keys(STATES);
+    for(let i=0;i<10;i++){S.inputs={zip:'',state:ks[Math.floor(Math.random()*ks.length)],zoneIdx:Math.floor(Math.random()*3),track:['food','food','agro','deer'][Math.floor(Math.random()*4)],wet:Math.random()<.3,poor:Math.random()<.3,shade:Math.random()<.25,plot:['small','medium','large'][Math.floor(Math.random()*3)],season:['early','late','all'][Math.floor(Math.random()*3)]};
+      removed.clear();S.manual=[];buildPlan();const real=plan.filter(x=>!x.empty);if(real.length&&Math.random()<.7){const pick=real[Math.floor(Math.random()*real.length)];cartSignal(pick.p.id,'removed')}
+      if(Math.random()<.4){const zone=zoneFor(S.inputs),inPlan=new Set(real.map(x=>x.p.id));const cands=PLANTS.filter(p=>!inPlan.has(p.id)&&eligible(p,S.inputs,zone));if(cands.length)cartSignal(cands[Math.floor(Math.random()*cands.length)].id,'added')}}
+    S.inputs=keep;removed=keepRemoved;S.manual=keepManual;all();return}
+  if(b.id==='sim-season'){const trees=PLANTS.filter(p=>!p.ground);for(let i=0;i<8;i++){const p=trees[Math.floor(Math.random()*trees.length)];const z=p.z[0]+(Math.random()<.5?0:1);const r=Math.random();fileReport(p.id,z,r<.35?'thrived':r<.55?'alive':r<.85?'winter':r<.93?'wet':'nofruit')}all();return}
+  if(b.id==='reset'){S=structuredClone(DEFAULT);removed.clear();all();return}
+  if(b.id==='copysession'){const txt=sessionText();const ta=$('#sessiontext');ta.value=txt;ta.hidden=false;
+    const done=()=>{b.textContent='Copied. Paste it into the feedback form.';setTimeout(()=>b.textContent='Copy my session',2500)};
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(done,()=>{ta.focus();ta.select()});else{ta.focus();ta.select()}
+    return}
+});
+function sessionText(){const inp=S.inputs,who=($('#who').value||'anonymous').trim();const lines=plan.filter(x=>!x.empty).map(x=>`  ${STRATA[x.slot.st]} ${x.slot.role}${x.manual?' (my pick)':''}: ${x.p.name} x${x.qty}`);
+  return [`Grove Planner session · ${who} · ${new Date().toISOString().slice(0,16).replace('T',' ')}`,`ZIP ${inp.zip||'none'} zone ${zoneLabel(inp)} · ${{food:'food forest',agro:'agroforestry',deer:'deer plot'}[inp.track]} · ${[inp.wet?'wet':'',inp.poor?'poor soil':'',inp.shade?'shade':''].filter(Boolean).join(', ')||'open ground'} · ${inp.plot} · harvest ${inp.season}`,'Plan:',...lines,
+    'Signals and evidence:',...(S.evidence.length?S.evidence.map(e=>'  '+e.text):['  none']),'Rule changes:',...(S.rulelog.length?S.rulelog.map(r=>'  '+r.text):['  none']),'Suggestions:',...(S.suggestions.length?S.suggestions.map(s=>`  ${s.name} (${STRATA[s.layer]}): ${s.note||''}`):['  none']),'Guilds:',...(S.guilds.length?S.guilds.map(g=>`  ${g.name}: ${g.items}`):['  none'])].join('\n')}
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='state'){S.inputs.state=t.value;S.inputs.zoneIdx=1;removed.clear();all();return}
+  if(t.id==='tester'){S.tester=t.checked;all();return}
+  if(t.dataset.k){const k=t.dataset.k,old=S.weights[k],nv=+t.value;if(old!==nv){S.weights[k]=nv;logRule(`${WEIGHTS.find(w=>w.k===k).label} ${old} → ${nv}`);all()}return}
+  if(t.dataset.dispute&&t.value){S.evidence.push({t:stamp(),kind:'expert',plant:t.dataset.dispute,fact:t.value,contradicts:true,text:`Expert: disputed ${t.value.replace('_',' ')} on ${BY[t.dataset.dispute].name}`});t.value='';all();return}
+});
+document.addEventListener('input',e=>{if(e.target.dataset.k)$('#v-'+e.target.dataset.k).textContent=e.target.value;
+  if(e.target.id==='zip'){const v=e.target.value.replace(/\D/g,'').slice(0,5);if(v!==S.inputs.zip){S.inputs.zip=v;removed.clear();all()}}});
+all();
+</script>
+</body></html>
