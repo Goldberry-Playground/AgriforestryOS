@@ -58,7 +58,9 @@ jobs:
               .github/workflows/ci-autofix.yml \
               .github/workflows/ci-failure-router.yml \
               .github/workflows/config-freeze.yml \
-              .github/workflows/fix-touches-test.yml
+              .github/workflows/fix-touches-test.yml \
+              .github/workflows/consult-ci.yml \
+              .github/workflows/consult-image.yml
 
   yaml-lint:
     name: YAML lint (config + workflows)

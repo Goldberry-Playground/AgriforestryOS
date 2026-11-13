@@ -5,6 +5,13 @@ updates:
     schedule:
       interval: "weekly"
 
+  # apps/consult is a standalone pnpm project (GOL-3722); its image carries a
+  # blocking Trivy gate, so keep the lockfile moving.
+  - package-ecosystem: "npm"
+    directory: "/apps/consult"
+    schedule:
+      interval: "weekly"
+
   # Keep GitHub Actions up to date, especially the SHA-pinned third-party
   # actions in our farm_syntropic workflows. Dependabot will open PRs that
   # bump the SHA and update the trailing version comment.

@@ -1,0 +1,85 @@
+name: Consult CI
+
+# Lint, type-check and unit-test apps/consult (the Next.js staff dashboard,
+# moved here from grove-sites by GOL-3722, restructure spec §C).
+#
+# The job is a REQUIRED check (.github/required-checks.json), so the workflow
+# carries no `paths:` filter: a required check that never starts leaves every
+# unrelated PR at "Expected — waiting for status", and `merge_group` ignores
+# path filters anyway. The path filter lives in the `changes` step instead:
+# the job always reports, and skips the install/lint/test steps when nothing
+# under apps/consult changed.
+
+on:
+  pull_request:
+    branches: [main, 'feature/**']
+  push:
+    branches: [main]
+  merge_group:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: consult-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  consult:
+    name: Consult CI (lint, type-check, test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/consult
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Did apps/consult change?
+        id: changes
+        working-directory: .
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          MG_BASE: ${{ github.event.merge_group.base_sha }}
+          PUSH_BASE: ${{ github.event.before }}
+        run: |
+          case "$EVENT" in
+            pull_request) base="$PR_BASE" ;;
+            merge_group)  base="$MG_BASE" ;;
+            *)            base="$PUSH_BASE" ;;
+          esac
+          # Any doubt (no base, unfetchable base) runs the suite.
+          run=true
+          if [ -n "$base" ] && git fetch --quiet --depth=1 origin "$base" \
+            && git diff --quiet "$base" HEAD -- apps/consult .github/workflows/consult-ci.yml; then
+            run=false
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "apps/consult changed vs ${base:-<none>}: $run"
+
+      - uses: actions/setup-node@v7
+        if: steps.changes.outputs.run == 'true'
+        with:
+          node-version: 22
+
+      - name: Enable pnpm (corepack, version from packageManager)
+        if: steps.changes.outputs.run == 'true'
+        run: corepack enable
+
+      - name: Install dependencies
+        if: steps.changes.outputs.run == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        if: steps.changes.outputs.run == 'true'
+        run: pnpm lint
+
+      - name: Type-check
+        if: steps.changes.outputs.run == 'true'
+        run: pnpm type-check
+
+      - name: Unit tests (lib/access.test.ts)
+        if: steps.changes.outputs.run == 'true'
+        run: pnpm test

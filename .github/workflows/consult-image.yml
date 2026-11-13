@@ -1,0 +1,137 @@
+name: Consult image
+
+# Build, smoke-test, scan and (on main) publish the Grove Consult image.
+# Moved from the `consult` leg of grove-sites docker.yml (GOL-3722, restructure
+# spec §C). The image name is unchanged, ghcr.io/goldberry-playground/grove-consult,
+# so odoocker production/consult.tf needs no edit; the tag is now an
+# AgriforestryOS SHA (odoocker `consult_image_tag`, GOL-3723).
+#
+# Pull requests build, smoke and scan without pushing, so a broken Dockerfile
+# is caught before it reaches main.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/consult/**'
+      - '.github/workflows/consult-image.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/consult/**'
+      - '.github/workflows/consult-image.yml'
+  # Re-publish main HEAD without a new commit (only a dispatch on main pushes).
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: consult-image-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_NAME: ghcr.io/goldberry-playground/grove-consult
+  TEST_TAG: test-${{ github.run_id }}
+  INTERNAL_PORT: "3001"
+
+jobs:
+  build-and-smoke-test:
+    name: consult — build + smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build image (local load)
+        uses: docker/build-push-action@v7
+        with:
+          context: apps/consult
+          file: apps/consult/Dockerfile
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:${{ env.TEST_TAG }}
+          cache-from: type=gha,scope=consult
+          cache-to: type=gha,scope=consult,mode=max
+
+      # Consult sits behind Cloudflare Access and verifies the Access JWT on
+      # every request. With CF_ACCESS_AUD unset it fails closed, so the smoke
+      # proves /healthz is up AND everything else is refused without a token.
+      - name: Smoke test container
+        env:
+          IMAGE: ${{ env.IMAGE_NAME }}:${{ env.TEST_TAG }}
+          SMOKE_ROUTES: "/healthz"
+          SMOKE_FORBIDDEN_ROUTES: "/ /api/leads"
+        run: |
+          docker run -d --name consult-smoke \
+            -p "${INTERNAL_PORT}:${INTERNAL_PORT}" \
+            -e ODOO_URL=http://127.0.0.1:1 \
+            -e ODOO_API_KEY=smoke-test \
+            -e CF_ACCESS_TEAM_DOMAIN=goldberrygrove \
+            "$IMAGE"
+
+          # Poll /healthz, not "/": consult answers "/" with a 403.
+          ready_path="${SMOKE_ROUTES%% *}"
+          for i in $(seq 1 30); do
+            if curl -fsS -o /dev/null "http://localhost:${INTERNAL_PORT}${ready_path}" ; then
+              echo "Container responding after ${i} polls"
+              break
+            fi
+            sleep 2
+          done
+
+          fail=0
+          for path in $SMOKE_ROUTES; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${INTERNAL_PORT}${path}")
+            echo "  ${path}  ->  ${code}"
+            case "$code" in
+              2*) ;;
+              *) fail=1 ;;
+            esac
+          done
+
+          # Routes that must be refused without credentials.
+          for path in $SMOKE_FORBIDDEN_ROUTES; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${INTERNAL_PORT}${path}")
+            echo "  ${path}  ->  ${code} (want 403)"
+            [ "$code" = "403" ] || fail=1
+          done
+
+          docker logs consult-smoke
+          docker rm -f consult-smoke || true
+          exit $fail
+
+      # Blocking, same gate as grove-sites docker.yml. If a finding is noise,
+      # document it in a .trivyignore with an expiry; do not flip exit-code.
+      - name: Scan image for high CVEs
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:${{ env.TEST_TAG }}
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          format: table
+
+      - name: Log in to GHCR
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag and push
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+        env:
+          TAG: ${{ env.TEST_TAG }}
+          SHA: ${{ github.sha }}
+        run: |
+          docker tag "$IMAGE_NAME:$TAG" "$IMAGE_NAME:$SHA"
+          docker push "$IMAGE_NAME:$SHA"
+          docker tag "$IMAGE_NAME:$TAG" "$IMAGE_NAME:latest"
+          docker push "$IMAGE_NAME:latest"
