@@ -1,0 +1,688 @@
+# Agent-mergeable path for AgriforestryOS
+# (GOL-3721 port of the grove-odoo-modules copy, itself GOL-308's port of
+# grove-sites GOL-122). AgriforestryOS differences, everything else is verbatim:
+#   - no single "CI" workflow: the full-CI gate below requires EVERY
+#     pull_request workflow run on the head SHA to be green, and the
+#     workflow_run trigger lists each PR workflow by name;
+#   - the ruleset has no review requirement, so the approval is advisory here;
+#     the enqueue into the merge queue is what matters.
+#
+# --- original grove-odoo-modules header follows ---
+#
+# Problem this solves:
+#   Every Paperclip agent authors PRs under the SAME GitHub App bot
+#   (agenticos-developer[bot]). This repo's `main-branch-protection` ruleset
+#   requires 1 approving review, and GitHub blocks "approve your own pull
+#   request", so no agent can satisfy the review gate on its own PRs.
+#
+# What actually stalled GOL-642 S1 (#27) -- and the durable fix (GOL-644):
+#   The approval identity was NOT the blocker: prior agent PRs (#19/#20/#26)
+#   merged with only a github-actions[bot] approval, so that approval DOES
+#   satisfy the ruleset here. #27 was blocked by an UNRESOLVED review thread
+#   from the third-party `github-code-quality` App (installed on this repo but
+#   NOT on grove-sites). The ruleset sets `required_review_thread_resolution:
+#   true`, so a single advisory bot nitpick permanently BLOCKS an agent PR even
+#   when every required status check is green -- and `--auto` merge waits for it
+#   forever. We resolve ONLY github-code-quality threads; human review threads
+#   are left unresolved so human review is still preserved and still blocks.
+#
+# How it works (mirrors grove-sites' proven merge mechanism):
+#   - APPROVE as github-actions[bot] -- a DISTINCT identity from the PR-author
+#     App -- which satisfies the required review. (Org+repo setting "Allow
+#     GitHub Actions to create and approve pull requests" enabled in GOL-304.)
+#   - RESOLVE stale github-code-quality review threads (advisory nitpicks; the
+#     required status checks are the real gate).
+#   - ENABLE auto-merge (squash) as github-actions[bot] and let the branch's
+#     `merge-queue` ruleset own the actual squash-merge. We NEVER pass
+#     `--delete-branch`: the repo's `delete_branch_on_merge=true` deletes the
+#     head ref AFTER the queue merges. Passing `--delete-branch` deletes the head
+#     ref BEFORE the queue completes -> the queued merge is cancelled and the PR
+#     is CLOSED unmerged (this is exactly what silently dropped #93; GOL-1658).
+#     The poll loop keeps re-resolving any late-arriving code-quality thread so
+#     the queue is never blocked. Requires `contents: write` + "Allow auto-merge".
+#
+# Human-maintainer path (GOL-1854, port of odoocker GOL-1195):
+#   A maintainer's OWN PRs hit the same wall from the other side: the ruleset
+#   requires an approving review, GitHub blocks approving your own PR, and (until
+#   now) this workflow skipped ALL human authors -> the maintainer's PR dead-ended
+#   with no way to satisfy the gate. The old workaround was to RE-ORIGINATE the PR
+#   under the agent App so it became bot-authored (GOL-1815 toil). We now clear the
+#   review gate for a small allowlist of trusted human maintainers (MAINTAINERS)
+#   by approving as github-actions[bot] (a DISTINCT identity, so no self-approval),
+#   but we deliberately DO NOT enable auto-merge for them -> the human keeps full
+#   control over WHEN their PR merges. The protected-paths carve-out applies to
+#   maintainer PRs too; only the agent-review sign-off gate is skipped for them
+#   (a human reviews their PR by hand). CI + protected-paths-guard +
+#   required_review_thread_resolution still gate the actual merge.
+#
+# Guardrails (see GOL-122 / GOL-644 / GOL-1854):
+#   - Auto-approves only (a) the agent App bot's PRs and (b) an explicit
+#     human-maintainer allowlist (MAINTAINERS). All other human/external PRs
+#     still keep the normal human-review requirement.
+#   - Only approves/arms auto-merge AFTER the FULL "CI" workflow run is green
+#     on the current head SHA (explicit poll gate below). The workflow_run
+#     entrypoint implies this, but the GOL-1938 check_run and
+#     pull_request_review entrypoints do NOT — and the live REQUIRED contexts
+#     are only the three lint/validate jobs while the GOL-1953 promotion is
+#     parked, so an armed auto-merge fires the moment those go green even if
+#     "Pure-Python unit tests" is red. That is how the 2026-09-08 morning
+#     rate-check PR (#194) landed a broken shipping_rates.json on main
+#     (fallout: #204). The explicit gate makes every entrypoint wait for the
+#     whole suite, not just the required subset.
+#   - Only resolves github-code-quality threads, never human threads.
+#   - Agent PRs get approve + auto-merge; maintainer PRs get approve ONLY
+#     (no auto-merge) so the human decides when to merge.
+#   - GOL-2372 (Josh-approved 2026-09-29): a MAINTAINER PR on a PROTECTED path
+#     used to dead-end at the carve-out (no way to satisfy the distinct required
+#     review but a hand-typed APPROVE). It is now approvable — approve ONLY — once
+#     EVERY assigned `agent-review/*` twin (ada, plus iris for a frontend twin)
+#     is `success` on the head SHA. Fail-closed if no twin is present. AGENT PRs
+#     on protected paths stay hard-withheld.
+#   - Runs from the base-branch definition (workflow_run), so a PR cannot
+#     modify this file to approve itself.
+#
+# Merge-queue enqueue identity (GOL-2524) -- why this workflow does NOT enqueue
+# with the default token:
+#   GitHub never creates workflow runs for events triggered by `GITHUB_TOKEN`
+#   (the documented anti-recursion rule -- the same rule that wedged the daily
+#   rate-check PR in GOL-2114). A merge queue turns `gh pr merge --squash
+#   [--auto]` on an already-green PR into an ENQUEUE, and an enqueue performed
+#   by `GITHUB_TOKEN` produces a merge group that NO `merge_group` workflow ever
+#   reacts to: zero runs, zero check-runs. The entry sits at `AWAITING_CHECKS`
+#   until GitHub's 30-minute `checkResponseTimeout` expires and silently ejects
+#   the PR -- unmerged, with no red check and no notification.
+#
+#   The cruel part is that a PR only reaches the enqueue because the full-CI
+#   gate below already passed: the healthier the PR, the more likely it silently
+#   fails to merge. Proven by two same-day A/Bs on 2026-09-23 (odoocker #729,
+#   grove-odoo-modules #277): enqueued by `github-actions` -> 0 merge_group runs
+#   in 4-6 min; dequeued and re-enqueued as the agent App -> 5-6 runs within 30s
+#   and a clean merge, same commits, same required checks.
+#
+#   Fix: mint an App installation token for the enqueue (its events DO create
+#   workflow runs) and use it for that ONE call. Approval, thread resolution and
+#   every read stay on `GITHUB_TOKEN` -- least privilege, and the approving
+#   identity is deliberately unchanged. When the App secrets are not provisioned
+#   the enqueue degrades to `GITHUB_TOKEN` (same graceful shape as
+#   `RATE_CHECK_PR_TOKEN` in GOL-2114) and the wedge detector below turns the
+#   remaining failure from silent into loud.
+name: Auto-approve verified agent PRs
+
+on:
+  # GOL-1938: three entrypoints, ALL evaluated from the BASE-branch workflow
+  # definition. workflow_run / check_run / pull_request_review each run the
+  # default-branch copy of this file, never a PR-supplied one, so the "a PR
+  # cannot edit this workflow to approve itself" property is preserved.
+  #   - workflow_run:         CI finished (the original trigger).
+  #   - check_run:            an agent-review/* check flipped to success AFTER CI
+  #                           had already finished — the case that used to stall
+  #                           forever because nothing re-fired the workflow.
+  #   - pull_request_review:  a human maintainer submitted an approving review —
+  #                           enqueues without waiting for a fresh push.
+  workflow_run:
+    # GOL-3721: every workflow that runs on pull_request (no single "CI" here).
+    # Keep in sync when a PR workflow is added or renamed.
+    workflows:
+      - farm_syntropic CI (fast)
+      - farm_syntropic PHPStan
+      - farm_syntropic smoke test
+      - Production farmOS image build
+      - MCP server CI
+      - Sync service CI
+      - PostGIS ETL CI
+      - Backup service CI
+      - Scripts CI
+      - Pull Request Changelog Enforcement Workflow
+    types: [completed]
+  check_run:
+    types: [completed]
+  pull_request_review:
+    types: [submitted]
+
+# contents:write lets github-actions[bot] perform the direct squash merge;
+# pull-requests:write lets it post the approving review and resolve threads.
+permissions:
+  contents: write
+  pull-requests: write
+
+# GOL-3721: up to 10 workflow_run completions fire per push here; collapse them
+# per head SHA. Every run re-evaluates live state, so dropping a pending one is
+# safe.
+concurrency:
+  group: auto-approve-${{ github.event.workflow_run.head_sha || github.event.check_run.head_sha || github.event.pull_request.head.sha || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  auto-approve:
+    # GOL-1938: gate hard at the job level so (a) high-volume check_run events
+    # that are NOT an agent-review/* success never start a runner [acceptance
+    # #3], and (b) the bot's OWN approving review never re-triggers this
+    # workflow [acceptance #4].
+    if: >-
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'pull_request' &&
+       github.event.workflow_run.pull_requests[0] != null) ||
+      (github.event_name == 'check_run' &&
+       github.event.check_run.conclusion == 'success' &&
+       startsWith(github.event.check_run.name, 'agent-review/')) ||
+      (github.event_name == 'pull_request_review' &&
+       github.event.review.state == 'approved' &&
+       github.event.review.user.login != 'github-actions[bot]')
+    runs-on: ubuntu-latest
+    steps:
+      # GOL-1406-A: base-branch checkout so the Tier-0 carve-out below runs the
+      # base definition of scripts/ci/protected-paths-carveout.mjs, not a
+      # PR-supplied one (a PR cannot edit the carve-out to approve itself).
+      - name: Check out base-branch scripts (protected-paths carve-out)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      # GOL-1938: the target PR is carried differently by each trigger. Resolve
+      # it once here and hand it to the shared gate body below via $GITHUB_ENV,
+      # so the entrypoints share the gate instead of copy-pasting it.
+      - name: Resolve target PR number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          WR_PR: ${{ github.event.workflow_run.pull_requests[0].number }}
+          REVIEW_PR: ${{ github.event.pull_request.number }}
+          CR_PR: ${{ github.event.check_run.pull_requests[0].number }}
+          CR_SHA: ${{ github.event.check_run.head_sha }}
+        run: |
+          set -euo pipefail
+          PR=""
+          case "$EVENT_NAME" in
+            workflow_run)        PR="$WR_PR" ;;
+            pull_request_review) PR="$REVIEW_PR" ;;
+            check_run)
+              # check_run carries PR context in .pull_requests[], but that array
+              # can be EMPTY (App-created check-runs, or a fork PR). Fall back to
+              # a head-SHA -> open-PR lookup so those still resolve. (GOL-1938)
+              PR="$CR_PR"
+              if [ -z "$PR" ] || [ "$PR" = "null" ]; then
+                PR=$(gh api "repos/$REPO/commits/$CR_SHA/pulls" \
+                  --jq '[.[] | select(.state=="open")][0].number' 2>/dev/null || true)
+              fi
+              ;;
+          esac
+          if [ -z "$PR" ] || [ "$PR" = "null" ]; then
+            echo "No open target PR resolved for event '$EVENT_NAME'; nothing to do."
+            PR=""
+          else
+            echo "Resolved target PR #$PR (event: $EVENT_NAME)."
+          fi
+          echo "PR=${PR}" >> "$GITHUB_ENV"
+
+      # GOL-2524: identity used for the merge-queue ENQUEUE only (see the header
+      # note). `vars.MERGE_QUEUE_APP_CLIENT_ID` is the switch: unset -> this step
+      # is skipped, `steps.enqueue-identity.outputs.token` is empty, and the
+      # enqueue falls back to GITHUB_TOKEN exactly as before (graceful
+      # degradation, same shape as RATE_CHECK_PR_TOKEN in GOL-2114). The App
+      # client id is not a secret (a repo/org *variable*), which is also what
+      # keeps this `if:` a plain expression.
+      #
+      # The minted token is scoped down to the two permissions the enqueue
+      # actually needs; the App's other installation permissions are NOT carried
+      # into this workflow. Provisioning: docs/merge-queue-enqueue-identity.md.
+      - name: Mint merge-queue enqueue identity (agent App)
+        id: enqueue-identity
+        if: vars.MERGE_QUEUE_APP_CLIENT_ID != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.MERGE_QUEUE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.MERGE_QUEUE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Approve + resolve bot threads + merge (github-actions[bot])
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          # GOL-3489: the only branch with a merge queue. A PR whose base is
+          # any OTHER branch is a stacked PR and is approved but never merged
+          # here (see the stacked-PR block in the step body).
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          # Empty unless the App identity above was minted. Consumed ONLY by the
+          # enqueue call; every other `gh` call keeps the default token. (GOL-2524)
+          ENQUEUE_TOKEN: ${{ steps.enqueue-identity.outputs.token }}
+        run: |
+          set -euo pipefail
+
+          # PR is resolved by the previous step. Empty when the event
+          # carried no actionable PR (e.g. a check_run whose head SHA
+          # has no open PR); nothing to do in that case. (GOL-1938)
+          if [ -z "${PR:-}" ]; then
+            echo "No target PR to process; exiting."
+            exit 0
+          fi
+
+          # Trusted human maintainers whose OWN PRs may auto-clear the review
+          # gate (space-separated logins). GitHub blocks approving your own PR,
+          # so without this a maintainer's PR dead-ends — previously worked around
+          # by re-originating the PR under the agent App (GOL-1815 toil). Keep this
+          # list minimal and in sync with the protected-paths owner. (GOL-1854)
+          MAINTAINERS="EngineeringMoonBear"
+
+          AUTHOR=$(gh pr view "$PR" --repo "$REPO" --json author -q '.author.login')
+          # App bot logins appear as "app/agenticos-developer" via gh and
+          # "agenticos-developer" via some APIs; accept both.
+          KIND=""
+          case "$AUTHOR" in
+            app/agenticos-developer|agenticos-developer) KIND="agent" ;;
+          esac
+          if [ -z "$KIND" ]; then
+            for m in $MAINTAINERS; do
+              # Match a bare login ONLY. Reject the "app/$m" form: real human
+              # maintainers always appear as bare logins, never "app/<login>".
+              # (GOL-1372 / GOL-1322)
+              if [ "$AUTHOR" = "$m" ]; then KIND="maintainer"; break; fi
+            done
+          fi
+          if [ -z "$KIND" ]; then
+            echo "PR #$PR author '$AUTHOR' is not the agent App bot or a listed maintainer; skipping (human/external PRs keep human review)."
+            exit 0
+          fi
+          echo "PR #$PR author '$AUTHOR' classified as: $KIND"
+
+          # Both gates apply — they answer different questions and neither
+          # subsumes the other: the carve-out asks "does this touch a dangerous
+          # file?", the agent-review gate asks "did a reviewer sign off on THIS
+          # head SHA?". A PR can fail either independently, so both stay.
+          #
+          # ORDER IS DELIBERATE: the carve-out is one API call + a local script,
+          # while the agent-review gate polls for up to 15 minutes. Running the
+          # cheap fail-closed check FIRST means a protected-path PR exits at once
+          # instead of burning a quarter hour of runner time to reach the same
+          # verdict.
+          # ── Tier-0 protected-paths carve-out (GOL-1406-A) ──
+          # Defense-in-depth before the protected-paths-guard becomes a REQUIRED
+          # check: never auto-approve/merge an agent PR that touches a protected
+          # path. Same PROTECTED_GLOBS as protected-paths-guard.yml (both
+          # generated from AgenticOS scripts/ci/gen-protected-paths-guard.py, so
+          # they cannot drift). Fail-closed: if the check cannot run, withhold.
+          PR_FILES=$(gh pr view "$PR" --repo "$REPO" --json files -q '.files[].path')
+          PROTECTED_HIT=0
+          if REASON=$(PR_FILES="$PR_FILES" node scripts/ci/protected-paths-carveout.mjs); then
+            :  # no protected path touched — proceed to approve
+          else
+            PROTECTED_HIT=1
+          fi
+
+          # ── GOL-2372: maintainer protected-path via Paperclip sign-off ──
+          # A MAINTAINER PR on a protected path used to dead-end at the carve-out:
+          # it withheld the bot approval, and GitHub blocks approving your own PR,
+          # so the ONLY distinct required review was an APPROVE the maintainer had
+          # to remember to hand-type in addition to closing the review twin. Josh
+          # approved (2026-09-29) accepting Paperclip's agent-review sign-off on
+          # the head SHA as that distinct review. AGENT PRs on protected paths are
+          # still hard-withheld (defense-in-depth, unchanged) — an agent must
+          # never clear a protected path on its own signal.
+          if [ "$PROTECTED_HIT" = "1" ]; then
+            if [ "$KIND" = "agent" ]; then
+              echo "PR #$PR not auto-approved: $REASON"
+              exit 0
+            fi
+            # KIND=maintainer: require EVERY assigned agent-review/* twin to be
+            # success on the CURRENT head SHA. That reviewer set is whatever the
+            # github-sync bridge actually opened (ada, plus iris when a frontend
+            # twin exists) — read straight off the head-SHA check-runs, so no
+            # reviewer login is hard-coded. STRICTER than the agent gate below
+            # (which needs only ONE success): here ALL present twins must be
+            # success and >=1 must be present. Fail-closed: absent / in_progress /
+            # any non-success => WITHHOLD, so this never approves while the review
+            # twin pipeline is down. Approve ONLY — the maintainer block further
+            # down still leaves the actual merge to the human.
+            echo "PR #$PR is a maintainer PR touching a protected path ($REASON); requiring every Paperclip agent-review/* sign-off on the head SHA before approving (GOL-2372)."
+            HEAD_SHA=$(gh pr view "$PR" --repo "$REPO" --json headRefOid -q '.headRefOid')
+            REVIEW_STATE=absent
+            for i in $(seq 1 30); do   # up to ~15 min (30 × 30s)
+              REVIEW_STATE=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs?per_page=100" \
+                -q '[.check_runs[] | select(.name | startswith("agent-review/"))]
+                     | if length==0 then "absent"
+                       elif all(.[]; .status=="completed" and .conclusion=="success") then "success"
+                       elif all(.[]; .status=="completed") then "completed-not-success"
+                       else "pending" end')
+              case "$REVIEW_STATE" in
+                success|completed-not-success) break ;;
+              esac
+              echo "maintainer protected-path agent-review/* on $HEAD_SHA: $REVIEW_STATE (poll $i/30)…"
+              sleep 30
+            done
+            if [ "$REVIEW_STATE" != "success" ]; then
+              echo "PR #$PR maintainer protected-path agent-review gate not satisfied on $HEAD_SHA (state: $REVIEW_STATE); not approving. Every assigned agent-review/* twin (ada, plus iris for frontend) must be success on the head SHA (GOL-2372)."
+              exit 0
+            fi
+            echo "All agent-review/* twins are success on $HEAD_SHA; approving the maintainer protected-path PR (approve only) — GOL-2372."
+          fi
+
+          # ── Unified agent-review gate (GOL-1734 / GOL-1738, Ada sign-off) ──
+          # AGENT PRs only. Maintainer PRs are exempt here — a human reviews them
+          # by hand; the review-count gate is cleared by the github-actions[bot]
+          # approval below. The carve-out above still runs for both, but a
+          # maintainer PR that hit a protected path was already gated by the
+          # GOL-2372 sign-off block above (agent PRs on protected paths exited
+          # there). (GOL-1854 / GOL-2372)
+          if [ "$KIND" = "agent" ]; then
+          # The github-sync plugin emits exactly one `agent-review/<reviewer>`
+          # check-run per non-draft agent PR: seeded `in_progress` on open,
+          # flipped to `success` ON THAT HEAD SHA only when the reviewer signs
+          # the review issue `done`. COMMENT-only — the signal is a check-run,
+          # never a GitHub APPROVE event. Require it PRESENT and `success` on the
+          # CURRENT head SHA before approving/merging: absent / in_progress /
+          # neutral / failure / success-on-old-SHA => BLOCK. Native `--auto`
+          # merge only waits for REQUIRED checks, and agent-review/* is not a
+          # required check, so this explicit gate is what enforces review here.
+          # Poll so a sign-off landing shortly after CI is caught; a later
+          # sign-off re-fires on the next CI run.
+          HEAD_SHA=$(gh pr view "$PR" --repo "$REPO" --json headRefOid -q '.headRefOid')
+          REVIEW_STATE=absent
+          for i in $(seq 1 30); do   # up to ~15 min (30 × 30s)
+            REVIEW_STATE=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs?per_page=100" \
+              -q '[.check_runs[] | select(.name | startswith("agent-review/"))]
+                   | if length==0 then "absent"
+                     elif any(.[]; .status=="completed" and .conclusion=="success") then "success"
+                     elif all(.[]; .status=="completed") then "completed-not-success"
+                     else "pending" end')
+            case "$REVIEW_STATE" in
+              success|completed-not-success) break ;;
+            esac
+            echo "agent-review/* on $HEAD_SHA: $REVIEW_STATE (poll $i/30)…"
+            sleep 30
+          done
+          if [ "$REVIEW_STATE" != "success" ]; then
+            echo "PR #$PR agent-review/* gate not satisfied on $HEAD_SHA (state: $REVIEW_STATE); not approving. The reviewer must sign off (COMMENT-only gate — GOL-1734)."
+            exit 0
+          fi
+          echo "agent-review/* is success on $HEAD_SHA; proceeding."
+
+          # ── Full-CI green gate (2026-09-08 rate-check incident: #194 → #204) ──
+          # Require the ENTIRE "CI" workflow run on the CURRENT head SHA to
+          # conclude success before approving/arming auto-merge. Without this,
+          # the check_run entrypoint (agent-review/* flipping success) could arm
+          # auto-merge mid-CI, and the merge then only waited for the three
+          # REQUIRED contexts — "Pure-Python unit tests" (~10s) and the Odoo
+          # install smoke test are NOT required while GOL-1953 is parked, so a
+          # red suite merged anyway.
+          #
+          # No deadlock when CI queues are slow: if this poll times out we exit
+          # WITHOUT approving, and the workflow_run("CI" success) entrypoint
+          # re-fires this whole workflow the moment CI eventually completes
+          # green. A red or cancelled run exits immediately (the next push
+          # re-triggers everything). A run stuck at action_required (the
+          # GOL-2114 default-token wedge) also exits — same human-remediation
+          # path as before, surfaced by the missing-checks sweep.
+          CI_STATE=missing
+          for i in $(seq 1 30); do   # up to ~15 min (30 × 30s)
+            # GOL-3721: AgriforestryOS has no single "CI" workflow. Aggregate
+            # the LATEST run of every pull_request workflow on the head SHA,
+            # excluding the agent-ops workflows themselves (this one included).
+            CI_STATE=$(gh api "repos/$REPO/actions/runs?head_sha=$HEAD_SHA&event=pull_request&per_page=100" \
+              -q '[.workflow_runs[]
+                   | select(.name | IN("Auto-approve verified agent PRs","CI autofix","CI failure router") | not)]
+                  | group_by(.name) | map(sort_by(.created_at) | last)
+                  | if length == 0 then "missing"
+                    elif any(.status != "completed") then "running"
+                    else ([.[] | .conclusion | select(IN("success","skipped","neutral") | not)] | first // "success")
+                    end')
+            case "$CI_STATE" in
+              success) break ;;
+              missing|running) : ;;   # not started / in flight — keep polling
+              *) break ;;             # failure/cancelled/timed_out/action_required — stop now
+            esac
+            echo "PR workflow runs on $HEAD_SHA: $CI_STATE (poll $i/30)…"
+            sleep 30
+          done
+          if [ "$CI_STATE" != "success" ]; then
+            echo "PR #$PR full-CI gate not satisfied on $HEAD_SHA (state: $CI_STATE); not approving or arming auto-merge. If CI is merely slow, the workflow_run entrypoint re-runs this workflow when it completes green."
+            exit 0
+          fi
+          echo "Full CI suite is green on $HEAD_SHA; proceeding."
+          fi
+
+          OWNER="${REPO%/*}"
+          NAME="${REPO#*/}"
+
+          # Resolve any UNRESOLVED review threads opened by github-code-quality.
+          # These are advisory nitpicks; the required status checks are the real
+          # gate. Human review threads are intentionally left untouched so they
+          # still block the merge (required_review_thread_resolution=true).
+          # GraphQL returns bot logins WITHOUT the "[bot]" suffix; match both.
+          resolve_bot_threads() {
+            # shellcheck disable=SC2016  # $owner/$name/$pr are GraphQL variables, not shell expansions
+            gh api graphql \
+              -f query='query($owner:String!,$name:String!,$pr:Int!){
+                repository(owner:$owner,name:$name){
+                  pullRequest(number:$pr){
+                    reviewThreads(first:100){nodes{
+                      id isResolved
+                      comments(first:1){nodes{author{login}}}
+                    }}
+                  }
+                }
+              }' \
+              -f owner="$OWNER" -f name="$NAME" -F pr="$PR" \
+              --jq '.data.repository.pullRequest.reviewThreads.nodes[]
+                    | select(.isResolved==false)
+                    | select((.comments.nodes[0].author.login=="github-code-quality")
+                             or (.comments.nodes[0].author.login=="github-code-quality[bot]"))
+                    | .id' \
+            | while read -r TID; do
+                [ -n "$TID" ] || continue
+                echo "Resolving stale github-code-quality thread $TID"
+                # shellcheck disable=SC2016  # $id is a GraphQL variable, not a shell expansion
+                gh api graphql \
+                  -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}' \
+                  -f id="$TID" >/dev/null
+              done
+          }
+
+          # Approve once per head SHA (don't stack duplicate approvals on
+          # re-runs). Count ONLY a bot APPROVED review whose commit_id is the
+          # PR's CURRENT head SHA: a bot approval left on an older commit is
+          # stale — the head move dismisses it for the merge gate — so it must
+          # NOT suppress a fresh approval on the new head. The old bare
+          # "ever approved?" check wedged PRs whose head advanced after a bot
+          # approval (e.g. #378: Oct approval on 900bca5, head now 7984772:
+          # every run logged "already approved" and skipped). (GOL-3914)
+          #
+          # HEAD_SHA is set by the agent-review gate (agent PRs) and the
+          # maintainer protected-path gate above, but NOT on the maintainer +
+          # unprotected-path branch — resolve it here if unset so the commit_id
+          # comparison works on every path (and does not trip `set -u`).
+          HEAD_SHA="${HEAD_SHA:-$(gh pr view "$PR" --repo "$REPO" --json headRefOid -q '.headRefOid')}"
+          ALREADY=$(gh api "repos/$REPO/pulls/$PR/reviews" \
+            --jq "[.[] | select(.user.login==\"github-actions[bot]\" and .state==\"APPROVED\" and .commit_id==\"$HEAD_SHA\")] | length")
+          if [ "${ALREADY:-0}" -gt 0 ]; then
+            echo "PR #$PR already approved by github-actions[bot] on current head $HEAD_SHA."
+          else
+            gh pr review "$PR" --repo "$REPO" --approve --body \
+              "Auto-approved by github-actions[bot]: CI (all required status checks) passed. This identity is distinct from the PR author, so it satisfies the review requirement without self-approval. Functional required status checks (incl. protected-paths-guard) still gate the merge. (GOL-308 / GOL-644 / GOL-1854)"
+          fi
+
+          # Maintainer PRs: approve ONLY. The human decides WHEN to merge, so we
+          # do not enable auto-merge on their behalf. We resolve advisory
+          # github-code-quality threads once so the human's merge isn't wedged on
+          # a bot nitpick; CI, protected-paths-guard, and required human review
+          # threads still gate. (GOL-1854)
+          if [ "$KIND" = "maintainer" ]; then
+            resolve_bot_threads
+            echo "PR #$PR is a maintainer PR: review gate cleared; leaving the merge decision to the author."
+            exit 0
+          fi
+
+          # ── GOL-3489: stacked PR (non-default base) => approve ONLY ──────
+          # `main` has a merge queue, so the `gh pr merge` call below is an
+          # ENQUEUE there. A topic branch has no queue: the same call (with or
+          # without `--auto` — gh merges an already-clean PR immediately) is a
+          # DIRECT merge, and with ENQUEUE_TOKEN empty (the App pair is still
+          # unset — GOL-3337) that merge is pushed by GITHUB_TOKEN. The push
+          # moves the head of the PARENT PR (the one whose base is this topic
+          # branch) under a self-triggered identity, so GitHub materialises
+          # every `pull_request` workflow on the parent at `action_required`
+          # and the same head move dismisses the parent's approving review.
+          # Net: the parent shows no CI and REVIEW_REQUIRED, silently
+          # (GOL-2504, GOL-2732, GOL-2800, GOL-3488 — four occurrences across
+          # the fleet; odoocker #877 and #799 were merged this way). The
+          # approval above stands; the merge belongs to the owning agent under
+          # its broker-minted App token, whose push is a normal collaborator
+          # push: the parent's workflows run and its review survives.
+          BASE_REF=$(gh pr view "$PR" --repo "$REPO" --json baseRefName -q '.baseRefName')
+          if [ "$BASE_REF" != "${DEFAULT_BRANCH:-main}" ]; then
+            echo "::notice title=Stacked PR approved, not merged (GOL-3489)::PR #$PR targets '$BASE_REF', not '${DEFAULT_BRANCH:-main}'. The approval stands; this workflow does not merge into a topic branch because a GITHUB_TOKEN merge push parks the parent PR's workflows at action_required and dismisses its approval. Owner action: merge it under the agent App identity (broker-minted token, never GITHUB_TOKEN): GH_TOKEN=<app token> gh pr merge $PR --repo $REPO --squash."
+            echo "PR #$PR is stacked on '$BASE_REF': approved only, not merged (GOL-3489)."
+            exit 0
+          fi
+
+          # ── GOL-2524: merge-queue dispatch check ─────────────────────────
+          # Everything here answers one question: did the merge group this PR
+          # was just put into actually get any workflow runs? A group with zero
+          # runs has no required check to wait for, so it will sit at
+          # AWAITING_CHECKS until GitHub's ~30-minute checkResponseTimeout
+          # ejects the PR -- unmerged, with no red check and no notification.
+          WEDGE_GRACE_SECONDS=180
+
+          # state \t enqueuedAt \t enqueuer \t mergeGroupCommit, or empty when
+          # the PR is not queued. Non-zero exit means "could not read".
+          queue_entry_tsv() {
+            # shellcheck disable=SC2016  # $owner/$name/$pr are GraphQL variables
+            gh api graphql \
+              -f query='query($owner:String!,$name:String!,$pr:Int!){
+                repository(owner:$owner,name:$name){
+                  pullRequest(number:$pr){
+                    mergeQueueEntry{
+                      state enqueuedAt enqueuer{login} headCommit{oid}
+                    }
+                  }
+                }
+              }' \
+              -f owner="$OWNER" -f name="$NAME" -F pr="$PR" \
+              --jq '.data.repository.pullRequest.mergeQueueEntry
+                    | if . == null then ""
+                      else [.state, .enqueuedAt, (.enqueuer.login // "?"),
+                            (.headCommit.oid // "")] | @tsv end' 2>/dev/null
+          }
+
+          # Count of workflow runs on a commit; empty when unreadable.
+          commit_run_count() {
+            gh api "repos/$REPO/actions/runs?head_sha=$1&per_page=1" -q '.total_count' 2>/dev/null || echo ""
+          }
+
+          # Prints a diagnosis and returns 0 ONLY on the dead-group signature:
+          # AWAITING_CHECKS, past the grace window, merge-group commit with zero
+          # workflow runs. Every other shape -- not queued, another state, still
+          # inside the window, any unreadable API -- returns 1 and says nothing.
+          # That bias is deliberate: firing FAILS the run, so a false positive
+          # would block a healthy PR's merge.
+          detect_queue_wedge() {
+            local entry state enq_at enqueuer group_sha enq_epoch age runs
+
+            entry=$(queue_entry_tsv) || return 1
+            [ -n "$entry" ] || return 1
+            state=$(printf '%s' "$entry" | cut -f1)
+            enq_at=$(printf '%s' "$entry" | cut -f2)
+            enqueuer=$(printf '%s' "$entry" | cut -f3)
+            group_sha=$(printf '%s' "$entry" | cut -f4)
+
+            # Only AWAITING_CHECKS can be wedged: QUEUED means the group has not
+            # formed yet, MERGEABLE means the checks already reported.
+            [ "$state" = "AWAITING_CHECKS" ] || return 1
+            [ -n "$group_sha" ] || return 1
+            # A group commit that IS the PR head means no merge commit was built;
+            # its runs would be the PR's own CI, not merge_group runs.
+            [ "$group_sha" != "$(gh pr view "$PR" --repo "$REPO" --json headRefOid -q '.headRefOid')" ] || return 1
+
+            enq_epoch=$(date -u -d "$enq_at" +%s 2>/dev/null || echo "")
+            [ -n "$enq_epoch" ] || return 1
+            age=$(( $(date -u +%s) - enq_epoch ))
+            [ "$age" -ge "$WEDGE_GRACE_SECONDS" ] || return 1
+
+            runs=$(commit_run_count "$group_sha")
+            [ -n "$runs" ] || return 1
+            [ "$runs" -eq 0 ] || return 1
+
+            cat <<WEDGE
+          ::error title=Merge group wedged (GOL-2524)::PR #$PR is enqueued but its merge group has no workflow runs; it will be ejected unmerged.
+
+          PR #$PR merge-queue entry has been AWAITING_CHECKS for ${age}s and its merge-group
+          commit $group_sha has ZERO workflow runs. The required checks were never
+          dispatched, so the entry will sit until GitHub's ~30-minute checkResponseTimeout
+          ejects the PR -- unmerged, with no red check and no notification.
+
+            enqueued by : $enqueuer
+            group commit: $group_sha
+            queue       : https://github.com/$REPO/queue/main
+
+          Cause (GOL-2524): events triggered by GITHUB_TOKEN never create workflow runs.
+          If 'enqueued by' above is github-actions, this run enqueued with the default
+          token because the App identity is not provisioned in this repo. Provision the
+          repo/org variable MERGE_QUEUE_APP_CLIENT_ID and the secret
+          MERGE_QUEUE_APP_PRIVATE_KEY (agent App) -- runbook:
+          docs/merge-queue-enqueue-identity.md
+
+          Rescue now -- re-enqueue under a NON-GITHUB_TOKEN identity (bypasses no gate; it
+          makes the required checks actually run). PR node id:
+            gh pr view $PR --repo $REPO --json id -q .id
+          then, with an App/PAT token:
+            gh api graphql -f query='mutation{dequeuePullRequest(input:{id:"<NODE_ID>"}){mergeQueueEntry{state}}}'
+            gh api graphql -f query='mutation{enqueuePullRequest(input:{pullRequestId:"<NODE_ID>"}){mergeQueueEntry{position state enqueuer{login}}}}'
+          Confirm enqueuer.login is NOT github-actions, then check that
+            gh api "repos/$REPO/actions/runs?head_sha=<NEW_GROUP_SHA>" -q .total_count
+          is non-zero within ~60s.
+          WEDGE
+            return 0
+          }
+
+          # The healthy counterpart: 0 when the merge group has at least one
+          # workflow run. Used only to stop watching early, never to raise an
+          # alarm, so "not queued" and "cannot tell" both return 1 (keep looking).
+          queue_group_dispatched() {
+            local entry group_sha runs
+            entry=$(queue_entry_tsv) || return 1
+            [ -n "$entry" ] || return 1
+            group_sha=$(printf '%s' "$entry" | cut -f4)
+            [ -n "$group_sha" ] || return 1
+            runs=$(commit_run_count "$group_sha")
+            [ -n "$runs" ] || return 1
+            [ "$runs" -gt 0 ]
+          }
+          # ── end GOL-2524 merge-queue dispatch check ──────────────────────
+
+          # Enable auto-merge (squash) and let the `merge-queue` ruleset own the
+          # actual merge. Poll to re-resolve any late-arriving code-quality thread
+          # so the queue is never blocked, and to exit promptly once merged.
+          #
+          # NEVER pass --delete-branch here: on a merge-queue branch `gh pr merge`
+          # enqueues the PR, and deleting the head ref cancels that queued merge
+          # and CLOSES the PR unmerged (GOL-1658). Cleanup is automatic --
+          # delete_branch_on_merge=true removes the head ref AFTER the queue merges.
+          for i in $(seq 1 30); do
+            resolve_bot_threads
+            MS=$(gh pr view "$PR" --repo "$REPO" --json state,mergeStateStatus -q '.state + ":" + .mergeStateStatus')
+            echo "merge attempt $i -- $MS"
+            case "$MS" in
+              MERGED:*)
+                echo "PR #$PR merged."; exit 0 ;;
+              OPEN:*)
+                # Idempotent: re-enabling auto-merge once it is set is a no-op.
+                # GOL-2524: on an already-green PR this call ENQUEUES, so it runs
+                # under the App identity when one was minted. Empty ENQUEUE_TOKEN
+                # -> GH_TOKEN keeps its step-level value (the default token).
+                if GH_TOKEN="${ENQUEUE_TOKEN:-$GH_TOKEN}" gh pr merge "$PR" --repo "$REPO" --squash --auto; then
+                  echo "Auto-merge enabled for PR #$PR; the merge queue will squash-merge once required checks are green and threads resolved (head ref auto-deleted post-merge)."
+                else
+                  echo "Could not enable auto-merge this pass (state $MS); will retry."
+                fi ;;
+            esac
+            # Fail LOUD on a dead merge group rather than let the PR be ejected
+            # silently 30 minutes from now. (GOL-2524)
+            if WEDGE=$(detect_queue_wedge); then
+              printf '%s\n' "$WEDGE"
+              exit 1
+            fi
+            sleep 20
+          done
+          echo "PR #$PR not merged within timeout; auto-merge is enabled and the approval stands, so the merge queue will complete it once required checks are green and all human review threads are resolved (or a maintainer can one-click)."
