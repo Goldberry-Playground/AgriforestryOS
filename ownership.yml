@@ -54,6 +54,15 @@ partitions:
     review: [engineering-ada]
     wave: 1
 
+  # --- Apps -----------------------------------------------------------------
+  # Next.js staff dashboard, moved from grove-sites (GOL-3722, spec §C).
+  - name: apps-consult
+    paths:
+      - apps/consult/**
+    owner: frontend-iris
+    review: [engineering-ada]
+    wave: 1
+
   # --- Static prototypes (CF Pages grove-lab, spec §D) ----------------------
   - name: labs
     paths:
@@ -61,9 +70,6 @@ partitions:
     owner: frontend-iris
     review: [devops-terra]
     wave: 1
-
-  # apps/consult/** (frontend-iris) is added by spec §C with the directory
-  # itself; the linter rejects globs that point at paths that don't exist yet.
 
   # --- Tooling, infra, docs ----------------------------------------------
   - name: infra
