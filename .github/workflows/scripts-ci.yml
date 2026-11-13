@@ -39,3 +39,10 @@ jobs:
 
       - name: Run pytest
         run: python -m pytest scripts/tests -v
+
+      # GOL-3721: the auto-approve protected-paths carve-out (scripts/ci/).
+      # Node ships on ubuntu-latest; the test is stdlib-only.
+      - name: Run carve-out tests (node)
+        run: |
+          set -euo pipefail
+          for t in scripts/ci/*.test.mjs; do node "$t"; done

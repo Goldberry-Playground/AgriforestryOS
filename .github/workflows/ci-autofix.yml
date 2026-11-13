@@ -1,0 +1,146 @@
+# Bounded mechanical self-heal for agent PRs (GOL-308, from approved GOL-303).
+#
+# Applies ruff's auto-fixes + ruff format to an agent PR and pushes ONE fix
+# commit. Mirrors the repo CI "Lint Python" job exactly:
+#   ruff check . --select E,F,I --line-length 120   (--fix here)
+#   ruff format --check . --line-length 120         (write here)
+# Non-mechanical failures leave no diff and stay red for the CI failure router
+# to escalate. See grove-sites ci-autofix.yml for the full rationale, the
+# `pull_request` (not `workflow_run`) security reasoning, and the App-token
+# push that re-triggers the required contexts on the autofix head (GOL-3337,
+# identical here).
+#
+# Guardrails: same-repo agent-authored PRs only; one autofix commit per push
+# (skips if the head commit is already a "[ci-autofix]" commit); no-op on a
+# clean diff.
+name: CI autofix
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: ci-autofix-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  autofix:
+    # Same-repo only — fork code never runs with a write-scoped token.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          # GOL-3721: full history so the changed-.py diff against the base resolves.
+          fetch-depth: 0
+          # The push step supplies its own credential (GOL-3337); do not leave the
+          # GITHUB_TOKEN in .git/config while the PR's own tooling runs.
+          persist-credentials: false
+
+      - name: Gate (agent author + loop guard)
+        id: gate
+        env:
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          set -euo pipefail
+          # NOTE: patterns are globs — brackets MUST be quoted so "[bot]" is a
+          # literal, not a one-char class (which never matched the real login
+          # "agenticos-developer[bot]" and silently skipped every agent PR).
+          case "$AUTHOR" in
+            agenticos-developer|"agenticos-developer[bot]"|app/agenticos-developer) ;;
+            *)
+              echo "PR author '$AUTHOR' is not the agent App bot; skipping."
+              echo "proceed=false" >> "$GITHUB_OUTPUT"; exit 0 ;;
+          esac
+          LAST_MSG=$(git log -1 --pretty=%s)
+          if printf '%s' "$LAST_MSG" | grep -q '\[ci-autofix\]'; then
+            echo "Head commit is already a [ci-autofix] commit; skipping to prevent loops."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Python
+        if: steps.gate.outputs.proceed == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # GOL-3721 (AgriforestryOS): the Python services were never ruff-formatted
+      # as a whole, so run ruff ONLY on the .py files this PR changes. A
+      # repo-wide pass would push a huge unrelated reformat onto the first agent
+      # PR. PHP (modules/farm_syntropic) has no safe mechanical fixer; its
+      # failures go to the CI failure router.
+      - name: Apply mechanical fixes (ruff --fix + ruff format, changed .py only)
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          mapfile -t PY_FILES < <(git diff --name-only --diff-filter=ACMR "$BASE_SHA"...HEAD -- '*.py')
+          if [ "${#PY_FILES[@]}" -eq 0 ]; then
+            echo "No changed .py files; nothing to autofix."
+            exit 0
+          fi
+          pip install ruff
+          # Non-fatal: ruff exits non-zero on remaining non-fixable findings.
+          ruff check --select E,F,I --line-length 120 --fix "${PY_FILES[@]}" || true
+          ruff format --line-length 120 "${PY_FILES[@]}" || true
+
+      # GOL-3337: GitHub dispatches NO workflows for pushes made with the automatic
+      # GITHUB_TOKEN, so an autofix pushed that way left the PR with zero check-runs
+      # on the new head until a human pushed an empty commit. Pushing as the agent
+      # App (same org pair auto-approve.yml uses for the merge-queue enqueue,
+      # GOL-2524) is a normal collaborator push: pull_request `synchronize` fires
+      # and the required contexts start on the autofix head. Unset pair -> step
+      # skipped -> GITHUB_TOKEN fallback (today's behaviour), never red.
+      - name: Mint push identity (agent App)
+        id: push-identity
+        if: steps.gate.outputs.proceed == 'true' && vars.MERGE_QUEUE_APP_CLIENT_ID != ''
+        # Fail-safe: a broken pair must not turn this context red. On failure the
+        # token output is empty and the push step falls back to GITHUB_TOKEN with
+        # a ::warning:: annotation.
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.MERGE_QUEUE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.MERGE_QUEUE_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Commit & push one fix commit (or skip if clean)
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          # App token when minted above, else the default token (GOL-3337).
+          PUSH_TOKEN: ${{ steps.push-identity.outputs.token || secrets.GITHUB_TOKEN }}
+          APP_PUSH: ${{ steps.push-identity.outputs.token != '' }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No mechanical fixes to apply — non-mechanical failure, leaving for the CI failure router (E1)."
+            exit 0
+          fi
+          git commit \
+            -m "chore(ci): apply mechanical ruff lint/format fixes [ci-autofix]" \
+            -m "Automated bounded self-heal for an agent PR. One commit per push (GOL-308)." \
+            -m "Co-authored-by: Paperclip <noreply@paperclip.ing>"
+          # Push with an explicit credential (checkout persisted none). An App-token
+          # push re-triggers pull_request checks; a GITHUB_TOKEN push does not.
+          AUTH_B64=$(printf '%s' "x-access-token:${PUSH_TOKEN}" | base64 -w0)
+          echo "::add-mask::${AUTH_B64}"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${AUTH_B64}" \
+            push origin "HEAD:$HEAD_REF"
+          if [ "$APP_PUSH" = "true" ]; then
+            echo "::notice::Pushed one [ci-autofix] commit to $HEAD_REF as the agent App; pull_request checks re-run on the new head (GOL-3337)."
+          else
+            echo "::warning::Pushed one [ci-autofix] commit to $HEAD_REF with GITHUB_TOKEN; GitHub will NOT re-run pull_request checks on it. Set org vars.MERGE_QUEUE_APP_CLIENT_ID + secrets.MERGE_QUEUE_APP_PRIVATE_KEY (GOL-2524 / GOL-3337) or push an empty commit to re-trigger."
+          fi

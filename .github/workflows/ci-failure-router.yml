@@ -1,0 +1,155 @@
+# CI failure router — provenance-based routing + recency-safe auto-close.
+#
+# Thin caller (GOL-1317): all logic lives in ONE shared composite action so a
+# fix lands once for all three repos (grove-sites, odoocker, grove-odoo-modules)
+# instead of a ~130-line block copy-pasted (and drifting) in each. This file
+# keeps only what is repo-specific: the event triggers and the list of watched
+# workflows below.
+#
+#   Shared action: Goldberry-Playground/grove-sites/.github/actions/ci-failure-router@a80a81d
+#
+# AgriforestryOS (GOL-3721):
+#   - The action is pinned to a grove-sites commit SHA, not @main (2026-11-01
+#     security scan). a80a81d = the last commit touching the action dir
+#     (grove-sites #975, GOL-3031). Bump it deliberately in a reviewed PR.
+#   - GitHub Issues are DISABLED on this repo. Every job first asks the API
+#     whether Issues are on. While they are off, only PR-owned failures are
+#     routed (sticky PR comment); ownerless failures, auto-close and the sweep
+#     no-op instead of failing with HTTP 410. Turning Issues on activates them
+#     with no edit here.
+#
+# Routes every failed run of the watched workflows by WHO owns the failure:
+#   - PR failure (live owner)  → sticky comment on the PR; 3 strikes escalate.
+#   - Ownerless failure (main, cron, dispatch) → mint/update a deduped issue.
+# Issues carry the `ci-failure` label; the AgenticOS GitHub App mirrors them to
+# Paperclip for agent analysis — that's the point of this file.
+#
+# Auto-close closes an issue when the failure it recorded is resolved:
+#   - a later run of the same workflow+branch succeeds AND that green run is at
+#     or ahead of the recorded failing commit (never a stale/older green);
+#   - the branch is deleted, or its PR is merged (or closed-unmerged with the
+#     branch already gone);
+#   - a daily sweep finds its branch no longer exists.
+# Runs in the base-repo context; never checks out or executes PR code.
+name: CI failure router
+
+on:
+  workflow_run:
+    workflows:
+      - farm_syntropic CI (fast)
+      - farm_syntropic PHPStan
+      - farm_syntropic smoke test
+      - Production farmOS image build
+      - MCP server CI
+      - Sync service CI
+      - PostGIS ETL CI
+      - Backup service CI
+      - Scripts CI
+      - Required-checks audit
+      - Deploy to preprod # push to main -> ownerless issue (once Issues are on)
+    types: [completed]
+  # Auto-close triggers (GOL-1216)
+  delete: # branch/tag deleted → close its stale ci-failure issues
+  pull_request:
+    types: [closed] # PR gone → close its branch's ci-failure issues
+  schedule:
+    - cron: "17 6 * * *" # daily sweep: close issues whose branch vanished
+  workflow_dispatch: # manual sweep
+
+permissions:
+  actions: read # list runs + jobs for the failed run / 3-strike lookback
+  issues: write # mint/update/close failure issues
+  pull-requests: write # sticky comment on the owning PR
+  contents: read # commit-compare for recency + repos.getBranch for sweep
+
+concurrency:
+  # Serialize per workflow+branch so dedup lookups don't race; never cancel.
+  group: ci-failure-router-${{ github.event_name }}-${{ github.event.workflow_run.name || github.event.pull_request.head.ref || github.event.ref || 'sweep' }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  route:
+    name: Route failure by provenance
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Are GitHub Issues enabled? (GOL-3721)
+        id: issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: echo "enabled=$(gh api "repos/$REPO" -q .has_issues)" >> "$GITHUB_OUTPUT"
+      - uses: Goldberry-Playground/grove-sites/.github/actions/ci-failure-router@a80a81da24cb0db090933363ad6e6cd702e5ae49 # grove-sites #975
+        if: steps.issues.outputs.enabled == 'true' || github.event.workflow_run.event == 'pull_request' || github.event.workflow_run.event == 'merge_group'
+        with:
+          mode: route
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+          wf-name: ${{ github.event.workflow_run.name }}
+          head-branch: ${{ github.event.workflow_run.head_branch }}
+          head-sha: ${{ github.event.workflow_run.head_sha }}
+          run-url: ${{ github.event.workflow_run.html_url }}
+          run-event: ${{ github.event.workflow_run.event }}
+          run-attempt: ${{ github.event.workflow_run.run_attempt }}
+          run-started-at: ${{ github.event.workflow_run.run_started_at }}
+
+  close-on-success:
+    name: Close resolved failure issue on green run
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Are GitHub Issues enabled? (GOL-3721)
+        id: issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: echo "enabled=$(gh api "repos/$REPO" -q .has_issues)" >> "$GITHUB_OUTPUT"
+      - uses: Goldberry-Playground/grove-sites/.github/actions/ci-failure-router@a80a81da24cb0db090933363ad6e6cd702e5ae49 # grove-sites #975
+        if: steps.issues.outputs.enabled == 'true'
+        with:
+          mode: close-success
+          github-token: ${{ github.token }}
+          wf-name: ${{ github.event.workflow_run.name }}
+          head-branch: ${{ github.event.workflow_run.head_branch }}
+          head-sha: ${{ github.event.workflow_run.head_sha }}
+          run-url: ${{ github.event.workflow_run.html_url }}
+          run-started-at: ${{ github.event.workflow_run.run_started_at }}
+
+  close-on-branch-gone:
+    name: Close failure issues when branch/PR is gone
+    if: >-
+      (github.event_name == 'delete' && github.event.ref_type == 'branch') ||
+      github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Are GitHub Issues enabled? (GOL-3721)
+        id: issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: echo "enabled=$(gh api "repos/$REPO" -q .has_issues)" >> "$GITHUB_OUTPUT"
+      - uses: Goldberry-Playground/grove-sites/.github/actions/ci-failure-router@a80a81da24cb0db090933363ad6e6cd702e5ae49 # grove-sites #975
+        if: steps.issues.outputs.enabled == 'true'
+        with:
+          mode: branch-gone
+          github-token: ${{ github.token }}
+          gone-branch: ${{ github.event.ref || github.event.pull_request.head.ref }}
+          trigger: ${{ github.event_name }}
+          pr-merged: ${{ github.event.pull_request.merged }}
+
+  sweep:
+    name: Sweep ci-failure issues whose branch vanished
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Are GitHub Issues enabled? (GOL-3721)
+        id: issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: echo "enabled=$(gh api "repos/$REPO" -q .has_issues)" >> "$GITHUB_OUTPUT"
+      - uses: Goldberry-Playground/grove-sites/.github/actions/ci-failure-router@a80a81da24cb0db090933363ad6e6cd702e5ae49 # grove-sites #975
+        if: steps.issues.outputs.enabled == 'true'
+        with:
+          mode: sweep
+          github-token: ${{ github.token }}

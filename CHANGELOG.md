@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- AgriforestryOS: joins the agent pipeline (GOL-3721, restructure spec §B, supersedes GOL-2016). Ports the agent-ops workflows from grove-odoo-modules/grove-sites: `auto-approve.yml` (agent-review sign-off + all PR workflows green → enqueue into the merge queue; protected paths withheld by `scripts/ci/protected-paths-carveout.mjs`), `ci-autofix.yml` (ruff on changed `.py` files only), `ci-failure-router.yml` (shared grove-sites action **pinned to SHA `a80a81d`**, not `@main`; no-ops issue-based routing while GitHub Issues are disabled), `config-freeze.yml` + `.github/config-freeze.json`, and `fix-touches-test.yml` (Python + PHPUnit test globs). Adds `ownership.yml` (engineering-ada, frontend-iris, devops-terra). `protected-paths-guard.yml` is not ported: grove-sites removed it in GOL-2013, and the carve-out took over its job.
+
 ### Security
 
 - AgriforestryOS: lockfile-only CVE bumps from the 2026-11-01 security scan (8 critical / 18 high → 0 / 0 in `trivy fs`). `mcp-server/uv.lock`: authlib 1.9.2, pyjwt 2.15.1, anyio 4.14.2, certifi 2026.10.23, cryptography 50.0.2, dnspython 2.9.1, joserfc 1.7.7, mcp 1.30.0, starlette 1.10.0. `sync-service/` and `postgis-etl/`: anyio 4.16.0, certifi 2026.10.23. `backup-service/`: urllib3 2.8.0. No `pyproject.toml` ranges changed; every service's pytest passes.

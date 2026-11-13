@@ -53,7 +53,12 @@ jobs:
               .github/workflows/smoke-farm-syntropic.yml \
               .github/workflows/phpstan-farm-syntropic.yml \
               .github/workflows/enforce-changelog.yml \
-              .github/workflows/mcp-server-ci.yml
+              .github/workflows/mcp-server-ci.yml \
+              .github/workflows/auto-approve.yml \
+              .github/workflows/ci-autofix.yml \
+              .github/workflows/ci-failure-router.yml \
+              .github/workflows/config-freeze.yml \
+              .github/workflows/fix-touches-test.yml
 
   yaml-lint:
     name: YAML lint (config + workflows)

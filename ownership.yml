@@ -1,0 +1,83 @@
+# ownership.yml — repo partition + review-routing map for the AgenticOS
+# group-coding flow (GOL-152), added to AgriforestryOS by GOL-3721 (§B4 of the
+# consult-platform restructure spec). Same schema as grove-sites and
+# grove-odoo-modules (see AgenticOS docs/ownership-schema.md):
+#
+#   version | repo | defaults.review | partitions[{name, paths, owner, review, wave}]
+#
+# Handles are Paperclip agent url-keys. The spec text says "engineering-iris";
+# Iris's live url-key is `frontend-iris`, which is what routing resolves.
+version: 1
+repo: AgriforestryOS
+
+defaults:
+  review: [engineering-ada]
+
+partitions:
+  # --- farmOS module + image ---------------------------------------------
+  - name: module-farm-syntropic
+    paths:
+      - modules/farm_syntropic/**
+    owner: engineering-ada
+    review: [devops-terra]
+    wave: 1
+  - name: docker
+    paths:
+      - docker/**
+    owner: devops-terra
+    review: [engineering-ada]
+    wave: 1
+
+  # --- Python services ----------------------------------------------------
+  - name: mcp-server
+    paths:
+      - mcp-server/**
+    owner: engineering-ada
+    review: [devops-terra]
+    wave: 1
+  - name: sync-service
+    paths:
+      - sync-service/**
+    owner: engineering-ada
+    review: [devops-terra]
+    wave: 1
+  - name: postgis-etl
+    paths:
+      - postgis-etl/**
+    owner: engineering-ada
+    review: [devops-terra]
+    wave: 1
+  - name: backup-service
+    paths:
+      - backup-service/**
+    owner: devops-terra
+    review: [engineering-ada]
+    wave: 1
+
+  # apps/consult/** (frontend-iris) and labs/** (frontend-iris) are added by
+  # spec §C/§D with the directories themselves; the linter rejects globs that
+  # point at paths that don't exist yet.
+
+  # --- Tooling, infra, docs ----------------------------------------------
+  - name: infra
+    paths:
+      - infra/**
+      - .github/**
+    owner: devops-terra
+    review: [engineering-ada]
+    wave: 1
+  - name: scripts
+    paths:
+      - scripts/**
+      - e2e_test.py
+    owner: engineering-ada
+    review: [devops-terra]
+    wave: 1
+  - name: docs
+    paths:
+      - docs/**
+      - CHANGELOG.md
+      - README.md
+    owner: engineering-ada
+    review: [devops-terra]
+    wave: 3
