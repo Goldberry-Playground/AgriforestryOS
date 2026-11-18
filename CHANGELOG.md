@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- AgriforestryOS: docs audit 2026-11-18. The README no longer frames the repo as a farmOS fork (fresh `main`, tag `archive/farmos-fork`, default branch `main`, not `4.x`), points the local stack at `docker/`, and lists the MCP server's 8 tools; hosting and Terraform docs say preprod deploys on merge to `main` and that `drush updb` is the manual migrate workflow. Docs only.
 - AgriforestryOS: post-review doc/comment cleanups for the preprod→prod pipeline — corrected a stale `docker-compose.prod.yml` reference in `docker/farmos.Dockerfile`, relabeled the "dev → prod" comparison in `docs/hosting/prod-deploy.md` to "preprod → prod", and added an ordering caution to `preprod-deploy.md` (arm `DEPLOY_PREPROD_ENABLED` only after the one-time farmOS install, so the first auto-deploy's health verify passes).
 
 ### Added
