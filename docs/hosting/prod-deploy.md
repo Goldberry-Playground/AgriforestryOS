@@ -86,7 +86,7 @@ requires MagicDNS + HTTPS certificates enabled in the Tailscale admin console be
 
 | | preprod | prod |
 |---|---|---|
-| Trigger | auto on merge to `4.x` | `v*` tag / manual dispatch |
+| Trigger | auto on merge to `main` | `v*` tag / manual dispatch |
 | Approval | none | **required reviewer** (`prod` Environment) |
 | Backups dir | droplet disk | **block-storage volume** (survives rebuild) |
 | Secrets | repo-level | **environment-scoped** to `prod` |

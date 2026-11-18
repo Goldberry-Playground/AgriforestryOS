@@ -1,6 +1,6 @@
 # AgriforestryOS MCP Server
 
-Read-only [FastMCP](https://github.com/jlowin/fastmcp) server that exposes AgriforestryOS farm data to Claude via five curated JSON:API tools.
+Read-only [FastMCP](https://github.com/jlowin/fastmcp) server that exposes AgriforestryOS farm data to Claude via eight curated tools (five JSON:API asset tools, one PostGIS spatial tool, two harvest tools).
 
 ## Prerequisites
 
@@ -114,7 +114,7 @@ mirror. Distances are in metres.
 - **Parameters:** `asset_type` (`trees`, `infrastructure`, `plantings`, `land_areas`), `lat`, `lon` (WGS84), `within_m` (optional radius — omit for nearest-N), `limit` (default 20)
 - **Returns:** List of asset dicts each with a `distance_m` field, nearest first
 - **When to use:** "What trees are within 30 m of the well?" (radius) or "the 5 nearest infrastructure items to this spot" (nearest-N)
-- **Requires:** `POSTGIS_DSN` set and the farmOS→PostGIS ETL (`postgis-etl/`) populated. Without it the tool returns a clear error; the other five tools are unaffected.
+- **Requires:** `POSTGIS_DSN` set and the farmOS→PostGIS ETL (`postgis-etl/`) populated. Without it the tool returns a clear error; the other tools are unaffected.
 
 ### `list_harvests` (Sprint 6 — yield tracking)
 

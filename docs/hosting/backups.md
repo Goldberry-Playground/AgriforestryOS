@@ -24,7 +24,7 @@ logs a warning — it never silently skips a backup.
 
 ## Backup before every migration
 
-The **Run DB migrations (dev) [manual]** workflow takes a fresh snapshot
+The **Run DB migrations (preprod) [manual]** workflow takes a fresh snapshot
 (`--reason premigrate`) *before* `drush updb`. A migration is exactly where a
 bad update hook can corrupt data, so the snapshot is the rollback point. If the
 snapshot fails, the workflow stops before touching `updb`.

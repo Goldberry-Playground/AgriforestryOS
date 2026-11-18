@@ -7,7 +7,8 @@ Docker-host droplet with a stable reserved IP and a locked-down firewall.
 - **Terraform (here)** owns the *infrastructure* — the droplet, reserved IP,
   firewall, SSH key. Runs rarely (provision / resize / replace the box).
 - **GitHub Actions** owns the *application deploy* onto that box — SSH in,
-  `git pull`, `docker compose up`, `drush updb`. Runs on every merge to `4.x`.
+  `git pull`, `docker compose up`. Runs on every merge to `main`
+  (`deploy-preprod.yml`); `drush updb` is the separate manual migrate workflow.
 
 Terraform's `reserved_ip` output is the deploy **target** the workflow points at.
 
