@@ -113,6 +113,26 @@ def _rel_list(rel: dict | None) -> list[dict]:
     return data if isinstance(data, list) else [data]
 
 
+def log_has_client_asset(log_record: dict, included: list) -> bool:
+    """True if any asset the harvest references has tenure=client.
+
+    A client harvest happens on a consulting client's land: it lives in the
+    one shared farmOS instance but must NEVER become an Odoo production
+    receipt (the produce is not ours). Resolved from the `included` asset
+    resources' `tenure` attribute; assets missing from `included` or without
+    a tenure are treated as home-farm.
+    """
+    tenures = {}
+    for inc in included:
+        if inc.get("id"):
+            tenures[inc["id"]] = inc.get("attributes", {}).get("tenure")
+    rels = log_record.get("relationships", {})
+    return any(
+        tenures.get(ref["id"]) == "client"
+        for ref in _rel_list(rels.get("asset"))
+    )
+
+
 # ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
@@ -130,19 +150,25 @@ class HarvestSyncService:
         logs = body.get("data", [])
         included = body.get("included", [])
 
-        counts = {"recorded": 0, "skipped_existing": 0, "skipped_no_product": 0}
+        counts = {"recorded": 0, "skipped_existing": 0, "skipped_no_product": 0,
+                  "skipped_client": 0}
         max_date = cursor
         for rec in sorted(logs, key=lambda r: r.get("attributes", {}).get("timestamp") or ""):
             ts = rec.get("attributes", {}).get("timestamp")
-            for receipt in harvest_to_receipts(rec, included):
-                self._record(receipt, counts)
+            # A client harvest is never an Odoo receipt (not our produce).
+            if log_has_client_asset(rec, included):
+                counts["skipped_client"] += 1
+                log.info("skip harvest %s: client-tenure asset", rec.get("id"))
+            else:
+                for receipt in harvest_to_receipts(rec, included):
+                    self._record(receipt, counts)
             if ts and (max_date is None or ts > max_date):
                 max_date = ts
 
         if max_date and max_date != cursor:
             self._state.save_cursor(max_date)
         log.info("harvest sync: recorded=%(recorded)d skipped_existing=%(skipped_existing)d "
-                 "skipped_no_product=%(skipped_no_product)d", counts)
+                 "skipped_no_product=%(skipped_no_product)d skipped_client=%(skipped_client)d", counts)
         return counts
 
     def _record(self, receipt: dict, counts: dict) -> None:

@@ -98,3 +98,73 @@ def test_summary_bad_group_by():
     import pytest
     with pytest.raises(ValueError, match="group_by"):
         harvest.summarize([], "color")
+
+
+# --- tenure (consult phase 1 A) ---------------------------------------------
+
+# A harvest collection spanning all three tenures: a permanent orchard tree,
+# a client-site tree (whose harvest must never count as home-farm yield), and
+# a tree with no tenure set (hand-entered — kept by default).
+_TENURE_RESPONSE = {
+    "data": [
+        {"id": "log-perm", "type": "log--harvest",
+         "attributes": {"name": "Orchard pick", "timestamp": "2026-09-01T12:00:00+00:00", "status": "done"},
+         "relationships": {
+             "asset": {"data": [{"type": "asset--tree", "id": "tree-perm"}]},
+             "quantity": {"data": [{"type": "quantity--standard", "id": "qp"}]}}},
+        {"id": "log-client", "type": "log--harvest",
+         "attributes": {"name": "Client pick", "timestamp": "2026-09-02T12:00:00+00:00", "status": "done"},
+         "relationships": {
+             "asset": {"data": [{"type": "asset--tree", "id": "tree-client"}]},
+             "quantity": {"data": [{"type": "quantity--standard", "id": "qc"}]}}},
+        {"id": "log-null", "type": "log--harvest",
+         "attributes": {"name": "Hand pick", "timestamp": "2026-09-03T12:00:00+00:00", "status": "done"},
+         "relationships": {
+             "asset": {"data": [{"type": "asset--tree", "id": "tree-null"}]},
+             "quantity": {"data": [{"type": "quantity--standard", "id": "qn"}]}}},
+    ],
+    "included": [
+        {"type": "asset--tree", "id": "tree-perm", "attributes": {"name": "Orchard Chestnut", "tenure": "permanent"}},
+        {"type": "asset--tree", "id": "tree-client", "attributes": {"name": "Client Apple", "tenure": "client"}},
+        {"type": "asset--tree", "id": "tree-null", "attributes": {"name": "Backyard Pear"}},
+        {"type": "quantity--standard", "id": "qp",
+         "attributes": {"measure": "weight", "label": "yield", "value": {"numerator": 10, "denominator": 1}}},
+        {"type": "quantity--standard", "id": "qc",
+         "attributes": {"measure": "weight", "label": "yield", "value": {"numerator": 5, "denominator": 1}}},
+        {"type": "quantity--standard", "id": "qn",
+         "attributes": {"measure": "weight", "label": "yield", "value": {"numerator": 3, "denominator": 1}}},
+    ],
+}
+
+
+def test_flatten_carries_asset_tenure():
+    flat = {h["id"]: h for h in harvest.flatten_harvests(_TENURE_RESPONSE)}
+    assert flat["log-perm"]["asset_tenures"] == ["permanent"]
+    assert flat["log-client"]["asset_tenures"] == ["client"]
+    # Hand-entered tree with no tenure attribute → None in the list.
+    assert flat["log-null"]["asset_tenures"] == [None]
+
+
+def test_filter_by_tenure_default_excludes_client():
+    flat = harvest.flatten_harvests(_TENURE_RESPONSE)
+    kept = {h["id"] for h in harvest.filter_by_tenure(flat, None)}
+    assert kept == {"log-perm", "log-null"}  # client dropped, NULL kept
+
+
+def test_filter_by_tenure_explicit_client():
+    flat = harvest.flatten_harvests(_TENURE_RESPONSE)
+    kept = {h["id"] for h in harvest.filter_by_tenure(flat, "client")}
+    assert kept == {"log-client"}
+
+
+def test_filter_by_tenure_explicit_permanent():
+    flat = harvest.flatten_harvests(_TENURE_RESPONSE)
+    kept = {h["id"] for h in harvest.filter_by_tenure(flat, "permanent")}
+    assert kept == {"log-perm"}
+
+
+def test_summary_default_excludes_client_yield():
+    # Home-farm total must be 10 (permanent) + 3 (null) = 13, NOT 18.
+    flat = harvest.filter_by_tenure(harvest.flatten_harvests(_TENURE_RESPONSE), None)
+    s = harvest.summarize(flat, "measure")
+    assert len(s) == 1 and s[0]["group"] == "weight" and s[0]["total_value"] == 13.0

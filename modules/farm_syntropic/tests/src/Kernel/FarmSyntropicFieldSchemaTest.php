@@ -312,6 +312,91 @@ class FarmSyntropicFieldSchemaTest extends KernelTestBase {
   }
 
   /**
+   * The Tree `tenure` list has exactly the three expected allowed values.
+   *
+   * permanent (our orchard), nursery_stock (alley stock for sale) and client
+   * (a consulting client's planting). Guards the contract the MCP tenure
+   * filter and the sync-service mapping both rely on.
+   */
+  public function testTreeTenureAllowedValues(): void {
+    $field = $this->fieldManager->getFieldDefinitions('asset', 'tree')['tenure'];
+    $allowed = $field->getSetting('allowed_values');
+    $this->assertSame(
+      ['permanent', 'nursery_stock', 'client'],
+      array_keys($allowed),
+      'Tree tenure must allow exactly permanent, nursery_stock, client',
+    );
+  }
+
+  /**
+   * The Fungal stratum term is seeded by the install/update helper.
+   *
+   * Taxonomy terms are content (not config), so hook_install() seeds Fungal
+   * and farm_syntropic_update_8003() repairs existing sites. Both call the
+   * shared idempotent helper, which is what this test exercises: it must
+   * create the term once and be a no-op on a second call.
+   */
+  public function testFungalStratumTermSeeded(): void {
+    $this->assertTrue(
+      function_exists('_farm_syntropic_ensure_stratum_term'),
+      'The stratum-term helper should be loaded with the module',
+    );
+    $first = _farm_syntropic_ensure_stratum_term('Fungal', 10);
+    $second = _farm_syntropic_ensure_stratum_term('Fungal', 10);
+    $this->assertSame($first, $second, 'Helper must be idempotent (same term id)');
+
+    $terms = \Drupal::entityTypeManager()
+      ->getStorage('taxonomy_term')
+      ->loadByProperties(['vid' => 'syntropic_stratum', 'name' => 'Fungal']);
+    $this->assertCount(1, $terms, 'Exactly one Fungal term should exist');
+  }
+
+  /**
+   * The property and water land bundles register from config/install.
+   */
+  public function testLandBundlesRegistered(): void {
+    $storage = \Drupal::entityTypeManager()->getStorage('asset_type');
+    foreach (['property' => 'Property', 'water' => 'Water'] as $id => $label) {
+      $bundle = $storage->load($id);
+      $this->assertNotNull($bundle, "Land bundle '$id' should be registered");
+      $this->assertSame($label, $bundle->label());
+    }
+  }
+
+  /**
+   * The property bundle carries the four consult fields plus geometry.
+   */
+  public function testPropertyFieldsRegistered(): void {
+    $expected = [
+      'client_name',
+      'odoo_opportunity_id',
+      'odoo_stock_location_id',
+      'status',
+      'geometry',
+    ];
+    $actual = array_keys($this->fieldManager->getFieldDefinitions('asset', 'property'));
+    $missing = array_diff($expected, $actual);
+    $this->assertEmpty($missing, 'Missing Property fields: ' . implode(', ', $missing));
+
+    // Status must be an active/archived list.
+    $status = $this->fieldManager->getFieldDefinitions('asset', 'property')['status'];
+    $this->assertSame(
+      ['active', 'archived'],
+      array_keys($status->getSetting('allowed_values')),
+      'Property status must allow active, archived',
+    );
+  }
+
+  /**
+   * The water bundle carries a geometry field (Point or Polygon).
+   */
+  public function testWaterGeometryFieldRegistered(): void {
+    $fields = $this->fieldManager->getFieldDefinitions('asset', 'water');
+    $this->assertArrayHasKey('geometry', $fields, "Water bundle should have a 'geometry' field");
+    $this->assertSame('geofield', $fields['geometry']->getType());
+  }
+
+  /**
    * tree_planting bundle registers from config/install.
    */
   public function testTreePlantingBundleRegistered(): void {

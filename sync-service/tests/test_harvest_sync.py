@@ -116,4 +116,48 @@ def test_cursor_advances(tmp_path):
 def test_empty_body_noop(tmp_path):
     counts = _svc(FakeFarmOS({"data": [], "included": []}),
                   FakeOdoo(products={}), tmp_path).run_once()
-    assert counts == {"recorded": 0, "skipped_existing": 0, "skipped_no_product": 0}
+    assert counts == {"recorded": 0, "skipped_existing": 0,
+                      "skipped_no_product": 0, "skipped_client": 0}
+
+
+# --- client tenure: never an Odoo receipt (consult phase 1 A) ---------------
+
+# Same harvest shape, but the harvested tree is on a client's land.
+_CLIENT_BODY = {
+    "data": [{
+        "id": "log-client", "type": "log--harvest",
+        "attributes": {"name": "Client apple pick", "timestamp": "2026-09-20T12:00:00+00:00"},
+        "relationships": {
+            "asset": {"data": [{"type": "asset--tree", "id": "tree-c"}]},
+            "quantity": {"data": [{"type": "quantity--standard", "id": "qc"}]},
+        },
+    }],
+    "included": [
+        {"type": "asset--tree", "id": "tree-c",
+         "attributes": {"name": "Client Apple", "tenure": "client"}},
+        {"type": "quantity--standard", "id": "qc",
+         "attributes": {"label": "Apples", "measure": "weight",
+                        "value": {"numerator": 7, "denominator": 1}}},
+    ],
+}
+
+
+def test_log_has_client_asset():
+    assert hs.log_has_client_asset(_CLIENT_BODY["data"][0], _CLIENT_BODY["included"]) is True
+    # The home-farm fixture's tree has no tenure → not client.
+    assert hs.log_has_client_asset(_BODY["data"][0], _BODY["included"]) is False
+
+
+def test_client_harvest_never_recorded(tmp_path):
+    odoo = FakeOdoo(products={"Apples": 42})  # product exists — still must skip
+    counts = _svc(FakeFarmOS(_CLIENT_BODY), odoo, tmp_path).run_once()
+    assert counts["recorded"] == 0
+    assert counts["skipped_client"] == 1
+    assert odoo.created == []
+
+
+def test_client_harvest_advances_cursor(tmp_path):
+    # Skipping a client log must not stall the cursor behind it.
+    svc = _svc(FakeFarmOS(_CLIENT_BODY), FakeOdoo(products={}), tmp_path)
+    svc.run_once()
+    assert svc._state.load_cursor() == "2026-09-20T12:00:00+00:00"
