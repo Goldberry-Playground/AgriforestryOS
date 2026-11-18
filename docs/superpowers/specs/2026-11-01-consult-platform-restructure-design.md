@@ -1,6 +1,7 @@
 # AgriforestryOS becomes the Grove Consult platform (restructure design)
 
-**Status:** rulings by Josh, 2026-11-01. Targets Release Train #5 (freeze Fri 2026-11-13, QA Mon 11-16, promote Wed 11-18). Train #4 is not touched.
+**Status:** rulings by Josh, 2026-11-01. The fresh `main`, the agent pipeline and `labs/` (sections A, B and D) targeted Release Train #5 (freeze Fri 2026-11-13, QA Mon 11-16, promote Wed 11-18). The consult move (section C) is Train #6. Train #4 is not touched.
+**Re-cut 2026-11-18 (GOL-4032):** this file was first proposed in AgriforestryOS#39 against `4.x`. That PR could not merge into the fresh `main`, so the file was carried onto `main` with the train wording updated and a status column added to section G. The rulings are unchanged.
 **Amends:** grove-odoo-modules `docs/superpowers/specs/2026-10-22-consult-dashboard-design.md` (gom#378) §D and §E. Wherever that spec says "grove-sites" for the consult app, its client, or its image build, read "AgriforestryOS". Its §A, §B and §C are unchanged.
 **Supersedes:** the GOL-2016 decision to keep this repo out of the agent pipeline (AgriforestryOS#36). That decision said to reverse it "when development resumes", and it resumes now.
 
@@ -9,7 +10,7 @@
 1. **The consulting software lives in AgriforestryOS.** It does not get its own repo and it does not stay in grove-sites. AgriforestryOS becomes one land-design platform repo holding the farmOS module, the MCP server, sync, ETL, the QGIS scripts, the consult app and the lab prototypes.
 2. **Fresh history.** A new `main` branch starts from the current tree as a single root commit. The old `4.x` branch is tagged `archive/farmos-fork` and then deleted. farmOS becomes a dependency (the stock image plus our module), not a fork.
 3. **Lab prototypes go into `labs/`** and are deployed by GitHub Actions instead of a local script.
-4. **Timing: Train #5.**
+4. **Timing: Train #5** for the fresh `main`, the agent pipeline and `labs/`. The consult move (section C) is **Train #6**.
 5. **What stays where it is:**
    - The nursery planner (`/plan`, `packages/planner`) stays in grove-sites.
    - The consult Odoo models stay in grove-odoo-modules (§C of gom#378).
@@ -108,7 +109,7 @@ These are the reversal steps recorded in AgriforestryOS#36, in order:
 - Delete `apps/consult`, the `consult` leg of the `.github/workflows/docker.yml` matrix, and its `pnpm-lock.yaml` entries.
 - Add a line to the README's apps table saying consult moved to AgriforestryOS.
 
-**Train manifest:** the Train #5 manifest gains an AgriforestryOS line for the consult SHA.
+**Train manifest:** the Train #6 manifest gains an AgriforestryOS line for the consult SHA.
 
 **Done when:**
 - The `grove-consult:<sha>` image is built from AgriforestryOS main and passes its healthz smoke.
@@ -163,17 +164,17 @@ Do it only if the flat layout gets in the way. It has no effect on behaviour, an
 
 ## G. Rollout and board split
 
-| Work | Repo | Owner | Blocked by | Train |
-|---|---|---|---|---|
-| Land or close AgriforestryOS#35–38 and the CVE PR | AgriforestryOS | Josh (review), Ada (#38 fixes) | — | #5 |
-| A. Fresh `main` cut, tag, rulesets, merge-policy | AgriforestryOS, AgenticOS | Josh | the row above | #5, by Fri 11-06 |
-| B. Agent pipeline on | AgriforestryOS, board, AgenticOS | Terra | A | #5 |
-| C1. `apps/consult` + CI + image | AgriforestryOS | Iris | A | #5 |
-| C2. `consult_image_tag` + promote input + runbook | odoocker | Terra | C1 image exists | #5 |
-| C3. Remove `apps/consult` from grove-sites | grove-sites | Iris | C1 | #5 |
-| D. `labs/` + Pages deploy | AgriforestryOS | Terra | A | #5 |
-| E. README / CLAUDE.md / gom#378 note / vault | several | Terra | A | #5 |
-| F. Folder reshuffle | AgriforestryOS | — | after #5 promote | later |
+| Work | Repo | Owner | Blocked by | Train | Status 2026-11-18 |
+|---|---|---|---|---|---|
+| Land or close AgriforestryOS#35–38 and the CVE PR | AgriforestryOS | Josh (review), Ada (#38 fixes) | — | #5 | Done. #37 and #40 merged to `4.x`; #35 and #38 were re-cut onto `main` as #42 and #43; #36 closed. |
+| A. Fresh `main` cut, tag, rulesets, merge-policy | AgriforestryOS, AgenticOS | Josh | the row above | #5 | Done 2026-11-13. The `4.x` branch still exists (open item 3). |
+| B. Agent pipeline on | AgriforestryOS, board, AgenticOS | Terra | A | #5 | Step 1 (the bridge) was registered 2026-11-11. Steps 2 and 4 landed in #41. Step 3 is open as AgenticOS#935. |
+| C1. `apps/consult` + CI + image | AgriforestryOS | Iris | A | #6 | Open as #45. |
+| C2. `consult_image_tag` + promote input + runbook | odoocker | Terra | C1 image exists | #6 | After C1. |
+| C3. Remove `apps/consult` from grove-sites | grove-sites | Iris | C1 | #6 | After C1. |
+| D. `labs/` + Pages deploy | AgriforestryOS | Terra | A | #5 | Landed (#44). The deploy is dormant until `CF_PAGES_TOKEN` and `CF_ACCOUNT_ID` are set. |
+| E. README / CLAUDE.md / gom#378 note / vault | several | Terra | A | #5 | Partly open. README corrections are in #46; `CLAUDE.md` is not added yet. |
+| F. Folder reshuffle | AgriforestryOS | — | after #5 promote | later | Not started. |
 
 GOL-3576 (phase 2 D) still targets Train #6 as before; it now builds in AgriforestryOS on top of C1.
 
