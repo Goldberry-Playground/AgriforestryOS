@@ -89,7 +89,7 @@ Custom farmOS module providing syntropic-specific asset types and taxonomies.
 
 ### `mcp-server/` — farmOS MCP server
 
-A [FastMCP](https://github.com/jlowin/fastmcp) server that wraps the farmOS JSON:API and exposes five read-only tools to Claude.
+A [FastMCP](https://github.com/jlowin/fastmcp) server that wraps the farmOS JSON:API (plus the PostGIS mirror) and exposes eight read-only tools to Claude.
 
 **Tools:**
 
@@ -100,6 +100,9 @@ A [FastMCP](https://github.com/jlowin/fastmcp) server that wraps the farmOS JSON
 | `query_trees` | Return a list of Tree assets with optional filters and configurable sparse fieldset |
 | `get_tree` | Fetch a single Tree asset by UUID |
 | `list_infrastructure` | List Infrastructure assets filtered by condition or type |
+| `spatial_query` | Radius / nearest-N search against the PostGIS mirror (needs `POSTGIS_DSN`) |
+| `list_harvests` | List harvest logs with their assets and quantities |
+| `harvest_summary` | Aggregate harvest quantities by asset, month, or measure |
 
 See [`mcp-server/README.md`](mcp-server/README.md) for full tool reference, auth setup, and example sessions.
 
@@ -210,11 +213,14 @@ claude mcp add qgis -- uvx mcp-proxy http://localhost:9876/sse
 git clone https://github.com/Goldberry-Playground/AgriforestryOS.git
 cd AgriforestryOS
 
-cp .env.example .env
-# Edit .env: set FARMOS_DB_PASSWORD and any other required values
-
-docker compose up -d
+cd docker
+docker compose \
+  -f docker-compose.development.yml \
+  -f docker-compose.farm-syntropic.yml \
+  up -d
 ```
+
+There is no compose file at the repo root; the local stack lives in `docker/` and uses fixed dev database credentials (`farm` / `farm`). The repo-root `.env.example` is for the sync and ETL services, and `docker/.env.prod.example` is for the server stack (`docker/docker-compose.server.yml`).
 
 farmOS will be available at `http://localhost`. Complete the farmOS installation wizard on first run.
 
@@ -223,9 +229,10 @@ farmOS will be available at `http://localhost`. Complete the farmOS installation
 Once farmOS is running:
 
 ```bash
-# Via Drush inside the farmOS container
-docker compose exec www drush en farm_syntropic -y
-docker compose exec www drush cr
+# Via Drush inside the farmOS container (run from docker/, same -f flags as above)
+COMPOSE="docker compose -f docker-compose.development.yml -f docker-compose.farm-syntropic.yml"
+$COMPOSE exec www drush en farm_syntropic -y
+$COMPOSE exec www drush cr
 ```
 
 This installs the Tree, Infrastructure, and Tree Planting asset types plus all four syntropic taxonomy vocabularies.
@@ -273,20 +280,20 @@ See [QGIS Integration → Installing the QGIS MCP plugin](#installing-the-qgis-m
 ### Phase 1 — Foundation ✅ (Sprints 3.5–4)
 - [x] Deploy farmOS 4.x Docker stack
 - [x] `farm_syntropic` module: Tree, Infrastructure, Tree Planting asset types + taxonomies
-- [x] farmOS MCP server v1: 5 read-only tools
+- [x] farmOS MCP server v1: 5 read-only JSON:API tools (now 8 with `spatial_query`, `list_harvests`, `harvest_summary`)
 - [x] QGIS MCP plugin installed and connected to Claude
 - [x] Goldberry Grove base plan loaded in QGIS (25 layers + DEM)
-- [ ] GeoJSON export: farmOS → QGIS layer loading script
+- [x] GeoJSON export: farmOS → QGIS layer loading script (`mcp-server/export_geojson.py`, `mcp-server/load_qgis_layers.py`)
 - [ ] QGIS project template with farmOS-sourced layers + print layout
-- [ ] Odoo → farmOS sync service (nursery transfers → Tree assets)
+- [x] Odoo → farmOS sync service (nursery transfers → Tree assets) (`sync-service/`)
 
 ### Phase 2 — Succession + Yield (Sprints 5–6)
-- [ ] PostGIS container + farmOS → PostGIS ETL
+- [x] PostGIS container + farmOS → PostGIS ETL (`postgis-etl/`)
 - [ ] QGIS → PostGIS live layers
-- [ ] `spatial_query` tool on MCP server (ST_DWithin)
+- [x] `spatial_query` tool on MCP server (ST_DWithin)
 - [ ] Succession stage progression tracking and logging
 - [ ] Yield and harvest records per tree/guild
-- [ ] Odoo harvest → product receipt sync
+- [x] Odoo harvest → product receipt sync (`sync-service/harvest_sync.py`)
 - [ ] Odoo purchase orders → pending Tree assets in farmOS
 - [ ] Reconciliation report: Odoo stock vs. farmOS tree counts
 
@@ -312,9 +319,9 @@ FARMOS_BASE_URL=http://localhost FARMOS_USERNAME=test FARMOS_PASSWORD=test \
 
 ## Fork Policy
 
-This is a private fork of farmOS. **Do not open pull requests against `farmOS/farmOS` or any other upstream project from this repository.** All work lives in `Goldberry-Playground/AgriforestryOS` only.
+This repo began as a fork of farmOS 4.x. On 2026-11-13 `main` was re-cut as a fresh root (the old fork history is tag `archive/farmos-fork`; branch `4.x` is retained only for old PRs), the GitHub fork link is gone, and farmOS is now a dependency (stock image + `farm_syntropic`), not a fork. The default branch is `main`. **Do not open pull requests against `farmOS/farmOS` or any other upstream project from this repository.** All work lives in `Goldberry-Playground/AgriforestryOS` only.
 
-When using `gh pr create`, always pass `--repo Goldberry-Playground/AgriforestryOS` explicitly. Two cross-repo PRs (#1078, #1080) leaked to `farmOS/farmOS` when this flag was omitted — the GitHub CLI defaulted to the upstream parent.
+When using `gh pr create`, always pass `--repo Goldberry-Playground/AgriforestryOS` explicitly. Before the re-cut, two cross-repo PRs (#1078, #1080) leaked to `farmOS/farmOS` when this flag was omitted — the GitHub CLI defaulted to the upstream parent. Old local clones may still have an `upstream` remote.
 
 ```bash
 # Always explicit:
@@ -325,4 +332,4 @@ gh pr create --repo Goldberry-Playground/AgriforestryOS --title "..." --body "..
 
 ## Licence
 
-GPL 2.0 — see [LICENSE.txt](LICENSE.txt). farmOS is developed by a community of volunteers; this fork builds on their work without intending to compete with or fragment the upstream project.
+GPL 2.0 — see [LICENSE.txt](LICENSE.txt). farmOS is developed by a community of volunteers; this project builds on their work without intending to compete with or fragment the upstream project.

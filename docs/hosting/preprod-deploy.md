@@ -3,7 +3,7 @@
 How code reaches the preprod environment. The flow, end to end:
 
 ```
-code → PR (gating CI) → merge 4.x → [auto] deploy app to preprod droplet
+code → PR (gating CI) → merge main → [auto] deploy app to preprod droplet
                                           │
                               migrations are SEPARATE + MANUAL
                               (run the "Run DB migrations" workflow by hand)
@@ -73,7 +73,7 @@ $COMPOSE up -d                       # bring up sync-service + postgis-etl
 
 ## Ongoing
 
-- **Deploy app:** merge a PR to `4.x` → the **Deploy to preprod** workflow ships the
+- **Deploy app:** merge a PR to `main` → the **Deploy to preprod** workflow ships the
   code and rebuilds the stack (cache rebuild only, no migrations). Or run it
   manually from the Actions tab.
 - **Apply migrations:** when a change adds an update hook (e.g. a new field),
