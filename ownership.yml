@@ -54,9 +54,16 @@ partitions:
     review: [engineering-ada]
     wave: 1
 
-  # apps/consult/** (frontend-iris) and labs/** (frontend-iris) are added by
-  # spec §C/§D with the directories themselves; the linter rejects globs that
-  # point at paths that don't exist yet.
+  # --- Static prototypes (CF Pages grove-lab, spec §D) ----------------------
+  - name: labs
+    paths:
+      - labs/**
+    owner: frontend-iris
+    review: [devops-terra]
+    wave: 1
+
+  # apps/consult/** (frontend-iris) is added by spec §C with the directory
+  # itself; the linter rejects globs that point at paths that don't exist yet.
 
   # --- Tooling, infra, docs ----------------------------------------------
   - name: infra
