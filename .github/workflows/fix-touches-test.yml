@@ -7,7 +7,8 @@
 # escape-hatch label. AgriforestryOS test conventions (GOL-3721): Python
 # pytest under <service>/tests/ (mcp-server, sync-service, postgis-etl,
 # backup-service, scripts), Drupal PHPUnit under
-# modules/farm_syntropic/tests/src/**/*Test.php, and the root e2e_test.py.
+# modules/farm_syntropic/tests/src/**/*Test.php, the root e2e_test.py, and
+# vitest `*.test.ts(x)` under apps/consult (GOL-3722).
 #
 # Merge-queue safety: reports success on `merge_group` so it can become a
 # required check without wedging the queue.
@@ -51,6 +52,9 @@ jobs:
               // GOL-2524 / GOL-3721: `scripts/ci/*.test.mjs` runs in Scripts CI
               // (scripts-ci.yml), so an .mjs regression test counts as a test.
               '**/*.test.mjs',
+              // GOL-3722: apps/consult unit tests (vitest, Consult CI).
+              '**/*.test.ts',
+              '**/*.test.tsx',
             ];
 
             const { owner, repo } = context.repo;
