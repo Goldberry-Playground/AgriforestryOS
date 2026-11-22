@@ -40,7 +40,7 @@ variable "repo_url" {
 variable "repo_branch" {
   description = "Branch the dev box tracks."
   type        = string
-  default     = "4.x"
+  default     = "main"
 }
 
 variable "tailscale_auth_key" {
