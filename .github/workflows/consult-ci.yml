@@ -83,3 +83,72 @@ jobs:
       - name: Unit tests (lib/access.test.ts)
         if: steps.changes.outputs.run == 'true'
         run: pnpm test
+
+  # The Playwright flow (GOL-4095): new client, three areas, modules, save,
+  # pipeline shows the lead at Intake. Starts its own `next dev` on 3016 in
+  # fixture mode (CONSULT_FIXTURE=1, set by playwright.config.ts), so it needs
+  # no Odoo and no secrets. Separate job and NOT required for now: a red flow
+  # shows on the PR without wedging the merge queue while it proves stable.
+  # Promote it into required-checks.json once it has a clean track record.
+  e2e:
+    name: Consult e2e (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/consult
+    steps:
+      - uses: actions/checkout@v7
+
+      # Same path filter as the job above.
+      - name: Did apps/consult change?
+        id: changes
+        working-directory: .
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          MG_BASE: ${{ github.event.merge_group.base_sha }}
+          PUSH_BASE: ${{ github.event.before }}
+        run: |
+          case "$EVENT" in
+            pull_request) base="$PR_BASE" ;;
+            merge_group)  base="$MG_BASE" ;;
+            *)            base="$PUSH_BASE" ;;
+          esac
+          run=true
+          if [ -n "$base" ] && git fetch --quiet --depth=1 origin "$base" \
+            && git diff --quiet "$base" HEAD -- apps/consult .github/workflows/consult-ci.yml; then
+            run=false
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "apps/consult changed vs ${base:-<none>}: $run"
+
+      - uses: actions/setup-node@v7
+        if: steps.changes.outputs.run == 'true'
+        with:
+          node-version: 22
+
+      - name: Enable pnpm (corepack, version from packageManager)
+        if: steps.changes.outputs.run == 'true'
+        run: corepack enable
+
+      - name: Install dependencies
+        if: steps.changes.outputs.run == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        if: steps.changes.outputs.run == 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Playwright flow
+        if: steps.changes.outputs.run == 'true'
+        run: pnpm test:e2e
+
+      - name: Upload Playwright traces
+        if: failure() && steps.changes.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: consult-e2e-traces
+          path: apps/consult/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
